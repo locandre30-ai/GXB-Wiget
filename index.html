@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GXB — Financial Command Center</title>
+  <style>
+    /* ==========================================================
+      GXB — Financial Command Center Hero Widget
+      - Self-contained (no external libs)
+      - Designed for iframe embed in Notion
+      - Edit-friendly: change labels, colors, status mode in one place
+    ========================================================== */
+
+    :root{
+      /* ---------- EASY EDIT: Palette ---------- */
+      --bg0: #060810;
+      --bg1: #090b14;
+      --ink: #eaf2ff;
+      --muted: rgba(234,242,255,.72);
+
+      --holoA: #67d6ff;   /* holographic blue */
+      --holoB: #7a5cff;   /* violet accent */
+      --diamond: #a8f0ff; /* diamond glint */
+      --gold: #cdb16a;    /* subtle gold */
+
+      --line: rgba(255,255,255,.10);
+      --line2: rgba(103,214,255,.12);
+      --shadow: rgba(0,0,0,.55);
+
+      /* ---------- EASY EDIT: Orb glow intensity ---------- */
+      --glow: 0.85;
+
+      /* ---------- Sizing ---------- */
+      --radius: 18px;
+      --pad: clamp(16px, 2.4vw, 28px);
+      --maxW: 1080px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 20% 10%, rgba(122,92,255,.16), transparent 55%),
+                  radial-gradient(900px 520px at 78% 16%, rgba(103,214,255,.15), transparent 58%),
+                  radial-gradient(1200px 900px at 50% 120%, rgba(205,177,106,.10), transparent 60%),
+                  linear-gradient(180deg, var(--bg0), var(--bg1));
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      overflow-x:hidden;
+    }
+
+    /* Container */
+    .wrap{
+      width: 100%;
+      padding: var(--pad);
+      display:flex;
+      justify-content:center;
+    }
+
+    .hero{
+      width: min(var(--maxW), 100%);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      box-shadow:
+        0 22px 60px rgba(0,0,0,.55),
+        0 0 0 1px rgba(103,214,255,.08) inset;
+      position: relative;
+      overflow:hidden;
+    }
+
+    /* Subtle noise / sheen overlay */
+    .hero::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(1000px 420px at 40% 0%, rgba(103,214,255,.10), transparent 60%),
+        radial-gradient(900px 520px at 90% 40%, rgba(122,92,255,.10), transparent 60%),
+        linear-gradient(120deg, rgba(205,177,106,.06), transparent 35%, rgba(103,214,255,.05));
+      mix-blend-mode: screen;
+      opacity:.9;
+      pointer-events:none;
+    }
+
+    /* Canvas background layer */
+    canvas#fx{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      opacity: .9;
+      pointer-events:none;
+    }
+
+    .inner{
+      position:relative;
+      padding: clamp(18px, 2.6vw, 34px);
+    }
+
+    /* Header */
+    .top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand{
+      min-width: 240px;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: rgba(234,242,255,.86);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .kicker .dot{
+      width:8px; height:8px; border-radius:99px;
+      background: radial-gradient(circle at 30% 30%, var(--diamond), var(--holoA));
+      box-shadow: 0 0 14px rgba(103,214,255,.55);
+    }
+
+    h1{
+      margin: 14px 0 2px;
+      font-size: clamp(34px, 4.5vw, 54px);
+      letter-spacing: .06em;
+      line-height: 1.02;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    h1 .glint{
+      background: linear-gradient(90deg, #ffffff, var(--diamond), var(--holoA), #ffffff);
+      -webkit-background-clip: text;
+      background-clip:text;
+      color: transparent;
+      text-shadow: 0 0 24px rgba(103,214,255,.25);
+    }
+
+    .subtitle{
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(234,242,255,.72);
+    }
+
+    .statement{
+      margin: 16px 0 0;
+      max-width: 62ch;
+      color: rgba(234,242,255,.80);
+      font-size: 14.5px;
+      line-height: 1.55;
+    }
+
+    /* Status strip */
+    .status{
+      margin-top: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .status .label{
+      font-size: 12px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(234,242,255,.68);
+      white-space: nowrap;
+    }
+    .status .mode{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width: 210px;
+      justify-content:flex-end;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(103,214,255,.22);
+      background:
+        radial-gradient(120px 60px at 30% 30%, rgba(103,214,255,.18), transparent 55%),
+        linear-gradient(180deg, rgba(103,214,255,.08), rgba(255,255,255,.02));
+      box-shadow: 0 0 0 1px rgba(103,214,255,.06) inset;
+      font-size: 12.5px;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+    }
+    .pill .sig{
+      width:10px; height:10px; border-radius:99px;
+      background: radial-gradient(circle at 30% 30%, #ffffff, var(--holoA));
+      box-shadow: 0 0 16px rgba(103,214,255,.6);
+      animation: pulse 2.2s ease-in-out infinite;
+    }
+
+    /* Orb Cards Grid */
+    .grid{
+      margin-top: 18px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card{
+      position:relative;
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      box-shadow: 0 18px 45px rgba(0,0,0,.35);
+      overflow:hidden;
+      transform: translateZ(0);
+      transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+    }
+    .card::after{
+      content:"";
+      position:absolute; inset:-40%;
+      background: radial-gradient(circle at 30% 30%, rgba(103,214,255,.14), transparent 60%),
+                  radial-gradient(circle at 70% 70%, rgba(205,177,106,.12), transparent 62%);
+      opacity:.8;
+      pointer-events:none;
+      transition: opacity .25s ease;
+    }
+    .card:hover{
+      transform: translateY(-3px);
+      border-color: rgba(103,214,255,.28);
+      box-shadow:
+        0 22px 60px rgba(0,0,0,.45),
+        0 0 0 1px rgba(103,214,255,.10) inset;
+    }
+    .card:hover::after{ opacity: 1; }
+
+    .cardTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom: 10px;
+    }
+
+    .tag{
+      font-size: 12px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(234,242,255,.78);
+    }
+    .hint{
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(234,242,255,.55);
+      white-space: nowrap;
+    }
+
+    .desc{
+      margin: 0;
+      color: rgba(234,242,255,.78);
+      font-size: 13.5px;
+      line-height: 1.45;
+      max-width: 44ch;
+      position:relative;
+      z-index: 2;
+    }
+
+    /* Orb */
+    .orb{
+      width: 84px;
+      height: 84px;
+      border-radius: 999px;
+      position:relative;
+      flex: 0 0 auto;
+      filter: saturate(1.1);
+      z-index: 2;
+      isolation:isolate;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.08) inset,
+        0 18px 40px rgba(0,0,0,.4);
+      overflow:hidden;
+    }
+
+    /* Shared orb surface (glassy sphere) */
+    .orb::before{
+      content:"";
+      position:absolute; inset:-25%;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.70), transparent 28%),
+        radial-gradient(circle at 55% 65%, rgba(255,255,255,.14), transparent 46%),
+        radial-gradient(circle at 50% 50%, rgba(103,214,255,.22), rgba(122,92,255,.12) 48%, rgba(0,0,0,.2) 72%),
+        conic-gradient(from 210deg, rgba(103,214,255,.0), rgba(103,214,255,.32), rgba(205,177,106,.22), rgba(103,214,255,.08), rgba(122,92,255,.28), rgba(103,214,255,.0));
+      mix-blend-mode: screen;
+      opacity: 1;
+      animation: spin 8.5s linear infinite;
+      transform-origin: center;
+    }
+
+    /* Orb rim glow */
+    .orb::after{
+      content:"";
+      position:absolute; inset:-8px;
+      border-radius:999px;
+      background: radial-gradient(circle at 50% 50%, rgba(103,214,255,.25), transparent 58%);
+      filter: blur(8px);
+      opacity: var(--glow);
+      animation: pulse 3.4s ease-in-out infinite;
+      z-index:-1;
+    }
+
+    /* Individual orb accents */
+    .orb[data-tone="capital"]::after{
+      background: radial-gradient(circle at 50% 50%, rgba(103,214,255,.28), transparent 58%);
+    }
+    .orb[data-tone="growth"]::after{
+      background: radial-gradient(circle at 50% 50%, rgba(122,92,255,.30), transparent 58%);
+    }
+    .orb[data-tone="legacy"]::after{
+      background: radial-gradient(circle at 50% 50%, rgba(205,177,106,.30), transparent 62%);
+    }
+
+    /* Micro grid line inside cards */
+    .microGrid{
+      position:absolute; inset:0;
+      background:
+        linear-gradient(to right, rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,.04) 1px, transparent 1px);
+      background-size: 22px 22px;
+      opacity: .22;
+      mask-image: radial-gradient(circle at 30% 30%, #000 25%, transparent 60%);
+      pointer-events:none;
+      z-index: 1;
+    }
+
+    /* Footer margin (avoid cramped iframe) */
+    .spacer{ height: 6px; }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .top{ flex-direction: column; }
+      .grid{ grid-template-columns: 1fr; }
+      .orb{ width: 76px; height: 76px; }
+      .status{ flex-direction: column; align-items:flex-start; }
+      .status .mode{ justify-content:flex-start; min-width:auto; }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce){
+      .orb::before, .orb::after, .pill .sig, canvas#fx { animation: none !important; }
+      .card{ transition:none; }
+    }
+
+    @keyframes spin{
+      from{ transform: rotate(0deg) scale(1.02); }
+      to  { transform: rotate(360deg) scale(1.02); }
+    }
+
+    @keyframes pulse{
+      0%,100%{ transform: scale(1); opacity: .75; }
+      50%    { transform: scale(1.06); opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <section class="hero" aria-label="GXB Financial Command Center hero widget">
+      <canvas id="fx"></canvas>
+
+      <div class="inner">
+        <div class="top">
+          <div class="brand">
+            <div class="kicker"><span class="dot"></span> Executive Command Layer</div>
+
+            <!-- ===== EASY EDIT: Titles ===== -->
+            <h1><span class="glint">GXB</span></h1>
+            <p class="subtitle">Financial Command Center</p>
+
+            <!-- ===== EASY EDIT: Hero statement ===== -->
+            <p class="statement">
+              “A living financial ecosystem designed to track, protect, and expand wealth.”
+            </p>
+          </div>
+
+          <!-- Status strip (manual update) -->
+          <div class="status" role="group" aria-label="Current Mode status">
+            <div class="label">Current Mode</div>
+
+            <!-- ===== EASY EDIT: Mode text below ===== -->
+            <div class="mode">
+              <div class="pill" id="modePill">
+                <span class="sig"></span>
+                <span id="modeText">Expansion</span>
+              </div>
+              <div class="hint">Expansion / Stabilization / Recovery / Scaling</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <!-- Card 1: CAPITAL -->
+          <article class="card" data-card="capital">
+            <div class="microGrid"></div>
+            <div class="cardTop">
+              <div>
+                <div class="tag">CAPITAL</div>
+                <div class="hint">Cash flow • Liquidity</div>
+              </div>
+              <div class="orb" data-tone="capital" aria-hidden="true"></div>
+            </div>
+            <p class="desc">“Organize cash flow. Control burn. Protect liquidity.”</p>
+          </article>
+
+          <!-- Card 2: GROWTH -->
+          <article class="card" data-card="growth">
+            <div class="microGrid"></div>
+            <div class="cardTop">
+              <div>
+                <div class="tag">GROWTH</div>
+                <div class="hint">Trades • Investments • AI</div>
+              </div>
+              <div class="orb" data-tone="growth" aria-hidden="true"></div>
+            </div>
+            <p class="desc">“Direct trades, investments, and revenue systems with precision.”</p>
+          </article>
+
+          <!-- Card 3: LEGACY -->
+          <article class="card" data-card="legacy">
+            <div class="microGrid"></div>
+            <div class="cardTop">
+              <div>
+                <div class="tag">LEGACY</div>
+                <div class="hint">Assets • Ownership</div>
+              </div>
+              <div class="orb" data-tone="legacy" aria-hidden="true"></div>
+            </div>
+            <p class="desc">“Convert discipline into assets, ownership, and long-term freedom.”</p>
+          </article>
+        </div>
+
+        <div class="spacer"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /* ==========================================================
+      FX Canvas: subtle glowing grid + drifting particles
+      - lightweight and responsive
+      - no external libraries
+      - tuned to look premium inside an iframe
+    ========================================================== */
+
+    // ===== EASY EDIT: Mode =====
+    // Change this string anytime: "Expansion" | "Stabilization" | "Recovery" | "Scaling"
+    const CURRENT_MODE = "Expansion";
+    document.getElementById("modeText").textContent = CURRENT_MODE;
+
+    // Optionally tint the pill based on mode:
+    const pill = document.getElementById("modePill");
+    const modeTone = {
+      Expansion:   "rgba(103,214,255,.22)",   // holo blue
+      Stabilization:"rgba(205,177,106,.22)",  // gold
+      Recovery:   "rgba(255,120,120,.20)",    // red-soft
+      Scaling:    "rgba(122,92,255,.22)"      // violet
+    };
+    pill.style.borderColor = modeTone[CURRENT_MODE] || "rgba(103,214,255,.22)";
+
+    const canvas = document.getElementById("fx");
+    const ctx = canvas.getContext("2d", { alpha: true });
+
+    let w = 0, h = 0, dpr = 1;
+    let particles = [];
+    let t0 = performance.now();
+
+    function resize(){
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2); // cap for performance
+      w = Math.floor(rect.width * dpr);
+      h = Math.floor(rect.height * dpr);
+      canvas.width = w;
+      canvas.height = h;
+
+      // Re-seed particles proportional to area
+      const target = Math.max(18, Math.min(48, Math.floor((rect.width * rect.height) / 28000)));
+      particles = new Array(target).fill(0).map(() => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: (Math.random() * 1.8 + 0.6) * dpr,
+        vx: (Math.random() * 0.18 + 0.05) * dpr,
+        vy: (Math.random() * 0.14 + 0.03) * dpr,
+        a: Math.random() * 0.55 + 0.25
+      }));
+    }
+
+    function drawGrid(time){
+      // Soft perspective-ish grid (not heavy)
+      const grid = 46 * dpr;
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.lineWidth = 1 * dpr;
+
+      // Fade toward edges
+      const grad = ctx.createRadialGradient(w*0.55, h*0.25, 0, w*0.55, h*0.25, Math.max(w,h)*0.75);
+      grad.addColorStop(0, "rgba(103,214,255,.12)");
+      grad.addColorStop(0.55, "rgba(255,255,255,.05)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.strokeStyle = grad;
+
+      // Animate slight drift
+      const dx = Math.sin(time * 0.00025) * 10 * dpr;
+      const dy = Math.cos(time * 0.00018) * 8 * dpr;
+
+      // Vertical lines
+      for(let x = -grid; x < w + grid; x += grid){
+        ctx.beginPath();
+        ctx.moveTo(x + dx, 0);
+        ctx.lineTo(x - dx*0.2, h);
+        ctx.stroke();
+      }
+      // Horizontal lines
+      for(let y = -grid; y < h + grid; y += grid){
+        ctx.beginPath();
+        ctx.moveTo(0, y + dy);
+        ctx.lineTo(w, y - dy*0.25);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function drawParticles(time){
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+
+      for(const p of particles){
+        // Move
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Wrap
+        if(p.x > w + 30) p.x = -30;
+        if(p.y > h + 30) p.y = -30;
+
+        // Glow
+        const pulse = 0.55 + 0.45 * Math.sin((time*0.0015) + p.x*0.01);
+        const alpha = p.a * pulse;
+
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 18*dpr);
+        g.addColorStop(0, `rgba(103,214,255,${0.26*alpha})`);
+        g.addColorStop(0.35, `rgba(122,92,255,${0.18*alpha})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 18*dpr, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function frame(time){
+      const dt = time - t0;
+      t0 = time;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Background FX layers
+      drawGrid(time);
+      drawParticles(time);
+
+      requestAnimationFrame(frame);
+    }
+
+    // Init
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
