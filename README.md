@@ -26,6 +26,10 @@ Every answer reveals the "future" bars for a visual payoff. Correct calls earn X
 combo multipliers; completed sessions build a daily 🔥 streak and end with an A–F grade
 plus a **Copy Session Log** button formatted to paste straight into the Notion database.
 
+Extras: tap any dotted term (ATR, R, stop, consolidating, …) for a plain-English
+breakdown in a bottom sheet, and switch candle color themes (mint / classic / tv / holo)
+to train your eye on the palette you trade with — choice persists.
+
 Progress (XP, level, streak) persists in `localStorage` per browser.
 
 ## Development
