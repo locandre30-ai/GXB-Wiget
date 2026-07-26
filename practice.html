@@ -290,7 +290,7 @@
     .gloss{
       position:absolute; inset:0;
       display:none;
-      align-items:flex-end; justify-content:center;
+      align-items:flex-start; justify-content:center;
       background: rgba(4,6,12,.62);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
@@ -299,12 +299,12 @@
     .gloss.open{ display:flex; }
     .gCard{
       width: min(560px, 100%);
-      border-radius: 16px 16px 0 0;
+      border-radius: 0 0 16px 16px;
       border: 1px solid rgba(103,214,255,.28);
-      border-bottom: none;
+      border-top: none;
       background: linear-gradient(180deg, rgba(16,20,32,.98), rgba(9,11,20,.98));
       padding: 20px 20px 18px;
-      box-shadow: 0 -18px 50px rgba(0,0,0,.5);
+      box-shadow: 0 18px 50px rgba(0,0,0,.5);
     }
     .gTitle{
       font-size: 15px; font-weight: 800; letter-spacing:.08em; text-transform: uppercase;
@@ -452,11 +452,16 @@
     const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // ===== EASY EDIT: Candle color themes (up, down) =====
+    // Each theme is psychologically distinct — not four shades of green/red:
+    // classic = the emotional default most charts use
+    // ocean   = blue/orange — calmer read, and the standard colorblind-safe pair
+    // mono    = white/slate — strips the emotion out so you read structure, not color
+    // holo    = GXB brand — cyan/violet
     const THEMES = {
-      mint:    ["#3fe0a8", "#ff6b8b"],   // GXB default — mint / rose
-      classic: ["#22c55e", "#ef4444"],   // classic green / red
-      tv:      ["#26a69a", "#ef5350"],   // TradingView-style teal / coral
-      holo:    ["#67d6ff", "#7a5cff"]    // holo blue / violet
+      classic: ["#22c55e", "#ef4444"],
+      ocean:   ["#3b82f6", "#f97316"],
+      mono:    ["#e8eef8", "#5b6474"],
+      holo:    ["#67d6ff", "#7a5cff"]
     };
 
     // ===== EASY EDIT: Glossary (tap any dotted term) =====
@@ -467,8 +472,8 @@
       stop:          ["Stop-Loss", "The price where you admit the trade is wrong and exit automatically. Set before you enter, never moved further away. Your stop defines your risk — everything else is built on it."],
       target:        ["Target", "The price where you take profit. Here it's set at 2R — twice your risk. With a 2R target you only need to be right ~40% of the time to be profitable. Math over emotion."],
       pullback:      ["Pullback", "A temporary move against the trend — the market taking a breath. In an uptrend, a few red candles dipping down. Healthy pullbacks are where the best entries live; broken pullbacks become reversals."],
-      continuation:  ["Continuation", "When the trend resumes after a pullback. The market breathes, then keeps going the same direction. Recognizing continuation early is how you enter with the trend instead of against it."],
-      reversal:      ["Reversal", "When a pullback doesn't stop — it breaks the trend's structure and the market changes direction. The line between pullback and reversal is where money is made or lost."],
+      continuation:  ["Continuation", "When the ORIGINAL trend resumes after a pullback. The market breathes, then keeps going the same direction it was already going. Key: continuation and reversal are always measured against the original trend — never against the pullback. Uptrend + pullback down + push back up = continuation."],
+      reversal:      ["Reversal", "When a pullback doesn't stop — it breaks the trend's structure and the market changes direction for real. Measured against the ORIGINAL trend: in an uptrend, a break of structure downward is the reversal. The line between pullback and reversal is where money is made or lost."],
       consolidating: ["Consolidating", "The market moving sideways — no clear direction, buyers and sellers balanced. Price chops in a zone. Consolidation is a no-trade zone for trend strategies: wait for the breakout, don't force trades inside the chop."],
       structure:     ["Market Structure", "The skeleton of the chart: the pattern of highs and lows. Uptrend = higher highs and higher lows. Downtrend = lower highs and lower lows. Structure tells you direction before any indicator does."],
       chase:         ["Chasing", "Entering late because a move already ran and FOMO kicked in. By the time it looks 'obvious,' the easy money is gone and your stop is far from any real level. Extended moves usually breathe first — let price come to you."],
@@ -489,7 +494,7 @@
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){}
     }
     let ST = loadState() || { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
-    if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "mint";
+    if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "classic";
     let CANDLES = THEMES[ST.candleTheme];
 
     // ---------- helpers ----------
@@ -593,14 +598,16 @@
       }
       if(!truth) truth = (fut[fut.length-1].c - bars[bars.length-1].c)*dir > 0 ? "cont" : "rev";
       const dirWord = dir>0 ? "uptrend" : "downtrend";
+      const contLabel = dir>0 ? "Continues Up ↑" : "Continues Down ↓";
+      const revLabel  = dir>0 ? "Reverses Down ↓" : "Reverses Up ↑";
       return {
         drill:"Continuation Recognition", bars, future:fut,
-        prompt:`${T("pullback","Pullback")} inside a <b>${dirWord}</b>. Does the move ${T("continuation","<b>continue</b>")} or is this a ${T("reversal","<b>reversal</b>")}?`,
-        options:[{key:"cont",label:"Continuation"},{key:"rev",label:"Reversal"}],
+        prompt:`This is an <b>${dirWord}</b> taking a breath (${T("pullback","pullback")}). Does the ${dirWord} resume, or does the pullback turn into a full ${T("reversal","reversal")}?`,
+        options:[{key:"cont",label:contLabel},{key:"rev",label:revLabel}],
         truth, lines:null, isTrade:false,
         explain:()=> truth==="cont"
-          ? "Trend resumed — the pullback was fuel, not failure."
-          : "Structure broke — the pullback became the turn. Respect the break."
+          ? `The ${dirWord} resumed — the ${T("pullback","pullback")} was fuel, not failure. ${T("continuation","Continuation")} always means the <b>original trend</b> keeps going.`
+          : `${T("structure","Structure")} broke — the pullback became the turn. ${T("reversal","Reversal")} means the <b>original trend</b> is done.`
       };
     }
 

@@ -140,6 +140,13 @@ Aesthetic: **grounded, elevated, intentional.** Never corporate-sterile. Never c
 
 This widget embeds into Notion via iframe. Keep it self-contained and iframe-safe (no `document.cookie`, no cross-origin calls, no popups).
 
+### Embed placement policy (King's rule)
+
+**One widget, one home: the original embed slot on the 💎 GXB hub page in Notion.**
+Ship all updates in place to the URL that slot already points at (GitHub Pages picks
+up merges to `main` automatically). Never add new embed blocks elsewhere in the
+Notion workspace — if a widget needs a new location, King moves the embed himself.
+
 ---
 
 ## How to Work With King Darius
