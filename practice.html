@@ -142,6 +142,7 @@
       color: var(--ink);
       box-shadow: 0 0 14px rgba(103,214,255,.18);
     }
+    .chip.mini{ padding: 6px 11px; font-size: 11px; }
 
     /* Stage */
     .stage{
@@ -373,6 +374,7 @@
       <div class="sessionRow">
         <span id="roundLbl">Round 1 / 10</span>
         <span class="combo" id="comboLbl"></span>
+        <button class="chip mini" id="assistBtn" title="Show or hide the stop / target / structure guide lines on the chart">👁 Assist On</button>
         <span class="rlive" id="rLbl">Session R: 0.0</span>
       </div>
 
@@ -496,6 +498,10 @@
     let ST = loadState() || { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
     if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "classic";
     let CANDLES = THEMES[ST.candleTheme];
+    if(ST.assist === undefined) ST.assist = true;
+
+    // Assist guide colors (brand-fixed, independent of candle theme)
+    const A_GOLD = "rgba(205,177,106,.6)", A_RED = "rgba(255,107,139,.55)", A_GRN = "rgba(63,224,168,.55)";
 
     // ---------- helpers ----------
     const $ = id => document.getElementById(id);
@@ -568,6 +574,7 @@
       const label = {up:"Uptrend", down:"Downtrend", range:"Consolidating"}[kind];
       return {
         drill:"Trend Confirmation", bars, future:fut,
+        assist:[{p:bars[0].o, c:A_GOLD, l:"START — far from here = trend"}],
         prompt:`Read the ${T("structure","structure")}. What is this market doing <b>right now</b>?`,
         options:[{key:"up",label:"Uptrend"},{key:"down",label:"Downtrend"},{key:"range",label:"Consolidating"}],
         truth:kind, lines:null, isTrade:false,
@@ -577,7 +584,7 @@
 
     function scContinuation(){
       const dir = Math.random()<.5 ? 1 : -1;
-      let bars, fut, truth;
+      let bars, fut, truth, swingKeep, pbExtKeep;
       for(let a=0;a<80;a++){
         const trend = mkBars(22, dir*rnd(.35,.6), rnd(.8,1.2), 100);
         const pb = mkBars(rndInt(3,5), -dir*rnd(.2,.4), rnd(.6,1.0), trend[trend.length-1].c);
@@ -587,6 +594,7 @@
         const tail = trend.slice(-8);
         const swing = dir>0 ? Math.max(...tail.map(b=>b.h)) : Math.min(...tail.map(b=>b.l));
         const pbExt = dir>0 ? Math.min(...pb.map(b=>b.l)) : Math.max(...pb.map(b=>b.h));
+        swingKeep = swing; pbExtKeep = pbExt;
         truth = null;
         for(const b of fut){
           const brokePb = dir>0 ? b.l <= pbExt : b.h >= pbExt;
@@ -602,6 +610,10 @@
       const revLabel  = dir>0 ? "Reverses Down ↓" : "Reverses Up ↑";
       return {
         drill:"Continuation Recognition", bars, future:fut,
+        assist:[
+          {p:swingKeep, c:A_GRN, l: dir>0 ? "BREAK ↑ = CONTINUES" : "BREAK ↓ = CONTINUES"},
+          {p:pbExtKeep, c:A_RED, l: dir>0 ? "BREAK ↓ = REVERSES" : "BREAK ↑ = REVERSES"}
+        ],
         prompt:`This is an <b>${dirWord}</b> taking a breath (${T("pullback","pullback")}). Does the ${dirWord} resume, or does the pullback turn into a full ${T("reversal","reversal")}?`,
         options:[{key:"cont",label:contLabel},{key:"rev",label:revLabel}],
         truth, lines:null, isTrade:false,
@@ -632,6 +644,13 @@
       }
       return {
         drill:"Entries", bars, future:fut,
+        assist:[
+          {p:entry, c:A_GOLD, l:"ENTRY"},
+          {p:entry+stopDist, c:A_RED, l:"STOP if short (1R)"},
+          {p:entry-stopDist, c:A_RED, l:"STOP if long (1R)"},
+          {p:entry+2*stopDist, c:A_GRN, l:"TARGET if long (2R)"},
+          {p:entry-2*stopDist, c:A_GRN, l:"TARGET if short (2R)"}
+        ],
         prompt:`Decision candle. ${T("stop","Stop")} is <b>${T("atr","1.2×ATR")}</b>, ${T("target","target")} is <b>${T("r","2R")}</b>. What's the play?`,
         options:[{key:"long",label:"Long"},{key:"short",label:"Short"},{key:"skip",label:"No Trade"}],
         truth, isTrade:true, entry, stopDist,
@@ -667,8 +686,13 @@
         }
         break;
       }
+      const cur = bars[bars.length-1].c, R0 = 1.2*A;
       return {
         drill:"Exits", bars, future:fut,
+        assist:[
+          {p:cur+R0, c:A_GRN, l:"REACHES HERE = HOLD WINS (+1R)"},
+          {p:cur-R0, c:A_RED, l:"DROPS HERE = EXIT WINS (-1R)"}
+        ],
         prompt:`You're <b>long from the marked candle</b> and in profit. Momentum check: hold the ${T("runner","runner")}, or bank it?`,
         options:[{key:"hold",label:"Hold Runner"},{key:"exit",label:"Take Profit"}],
         truth, isTrade:false, entryMark:{idx:entryIdx, price:entry},
@@ -704,6 +728,11 @@
       const word = dir>0 ? "ripping higher" : "dumping lower";
       return {
         drill:"Avoiding Chase Trades", bars, future:fut,
+        assist:[
+          {p:entry, c:A_GOLD, l:"CHASE ENTRY"},
+          {p:entry-dir*stopDist, c:A_RED, l:"STOP (1R)"},
+          {p:entry+dir*2*stopDist, c:A_GRN, l:"TARGET (2R)"}
+        ],
         prompt:`Price has been <b>${word} for 8 straight candles</b> and you just spotted it. ${T("chase","Chase")} it here, or let it breathe?`,
         options:[{key:"take",label: dir>0 ? "Chase It Long" : "Chase It Short"},{key:"wait",label:"Wait / No Chase"}],
         truth, isTrade:true, entry, stopDist, dir,
@@ -749,6 +778,10 @@
       if(sc && sc.lines){
         for(const v of Object.values(sc.lines)){ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v);} }
       }
+      const showAssist = ST.assist && sc && sc.assist && !(sc.lines && sc.lines.stop!=null);
+      if(showAssist){
+        for(const a of sc.assist){ lo=Math.min(lo,a.p); hi=Math.max(hi,a.p); }
+      }
       const padY = (hi-lo)*0.08 || 1; lo -= padY; hi += padY;
 
       const mL = 8*DPR, mR = 8*DPR, mT = 10*DPR, mB = 10*DPR;
@@ -778,6 +811,20 @@
         if(sc.lines.entry!=null)  hline(sc.lines.entry,  "rgba(205,177,106,.75)", true);
         if(sc.lines.stop!=null)   hline(sc.lines.stop,   "rgba(255,107,139,.7)",  true);
         if(sc.lines.target!=null) hline(sc.lines.target, "rgba(63,224,168,.7)",   true);
+      }
+
+      // Assist guides: dashed levels + labels, hidden once a chosen trade's
+      // own entry/stop/target lines take over
+      if(showAssist){
+        cctx.save();
+        cctx.font = `600 ${10*DPR}px ui-sans-serif, system-ui, sans-serif`;
+        cctx.textAlign = "right";
+        for(const a of sc.assist){
+          hline(a.p, a.c, true);
+          cctx.fillStyle = a.c;
+          cctx.fillText(a.l, W-mR-4*DPR, y(a.p)-4*DPR);
+        }
+        cctx.restore();
       }
 
       // candles
@@ -1115,9 +1162,22 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     });
     $("gClose").onclick = () => $("gloss").classList.remove("open");
 
+    // Assist toggle: show/hide guide lines, persisted
+    function paintAssist(){
+      $("assistBtn").classList.toggle("on", ST.assist);
+      $("assistBtn").textContent = ST.assist ? "👁 Assist On" : "👁 Assist Off";
+    }
+    $("assistBtn").onclick = () => {
+      ST.assist = !ST.assist;
+      saveState(ST);
+      paintAssist();
+      redraw();
+    };
+
     // ---------- init ----------
     buildChips();
     paintMeters();
+    paintAssist();
     new ResizeObserver(sizeCanvases).observe(chart);
     sizeCanvases();
     newSession();

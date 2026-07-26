@@ -26,7 +26,10 @@ Every answer reveals the "future" bars for a visual payoff. Correct calls earn X
 combo multipliers; completed sessions build a daily 🔥 streak and end with an A–F grade
 plus a **Copy Session Log** button formatted to paste straight into the Notion database.
 
-Extras: tap any dotted term (ATR, R, stop, consolidating, …) for a plain-English
+Extras: an 👁 Assist toggle overlays the live decision levels on the chart —
+entry/stop/target rails on trade drills, ±1R rails on exits, and the two
+structure-break lines on continuation drills — and hides them for clean self-testing.
+Tap any dotted term (ATR, R, stop, consolidating, …) for a plain-English
 breakdown in a top sheet, and switch candle color themes — classic green/red,
 ocean blue/orange (colorblind-safe), mono white/slate (emotion-neutral), and holo
 brand cyan/violet — to train your eye on the palette you trade with. Choice persists.
