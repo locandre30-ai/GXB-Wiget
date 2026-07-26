@@ -27,8 +27,9 @@ combo multipliers; completed sessions build a daily 🔥 streak and end with an 
 plus a **Copy Session Log** button formatted to paste straight into the Notion database.
 
 Extras: tap any dotted term (ATR, R, stop, consolidating, …) for a plain-English
-breakdown in a bottom sheet, and switch candle color themes (mint / classic / tv / holo)
-to train your eye on the palette you trade with — choice persists.
+breakdown in a top sheet, and switch candle color themes — classic green/red,
+ocean blue/orange (colorblind-safe), mono white/slate (emotion-neutral), and holo
+brand cyan/violet — to train your eye on the palette you trade with. Choice persists.
 
 Progress (XP, level, streak) persists in `localStorage` per browser.
 
