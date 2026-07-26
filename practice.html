@@ -274,10 +274,64 @@
       100%{ opacity:0; transform: translateY(-46px) scale(1); }
     }
 
+    /* Tappable glossary terms */
+    .term{
+      color: var(--diamond);
+      border-bottom: 1px dotted rgba(103,214,255,.65);
+      cursor: pointer;
+    }
+    .hint{
+      margin: 10px 2px 0;
+      font-size: 11.5px; letter-spacing: .04em;
+      color: rgba(234,242,255,.45);
+    }
+
+    /* Glossary bottom sheet */
+    .gloss{
+      position:absolute; inset:0;
+      display:none;
+      align-items:flex-end; justify-content:center;
+      background: rgba(4,6,12,.62);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 20;
+    }
+    .gloss.open{ display:flex; }
+    .gCard{
+      width: min(560px, 100%);
+      border-radius: 16px 16px 0 0;
+      border: 1px solid rgba(103,214,255,.28);
+      border-bottom: none;
+      background: linear-gradient(180deg, rgba(16,20,32,.98), rgba(9,11,20,.98));
+      padding: 20px 20px 18px;
+      box-shadow: 0 -18px 50px rgba(0,0,0,.5);
+    }
+    .gTitle{
+      font-size: 15px; font-weight: 800; letter-spacing:.08em; text-transform: uppercase;
+      background: linear-gradient(90deg, #fff, var(--diamond), var(--holoA));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      margin-bottom: 8px;
+    }
+    .gBody{ margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: rgba(234,242,255,.85); }
+
+    /* Candle color swatches */
+    .swatches{ display:flex; gap:7px; align-items:center; margin-left:auto; }
+    .swLbl{ font-size: 10.5px; letter-spacing:.12em; text-transform:uppercase; color: rgba(234,242,255,.45); }
+    .sw{
+      width: 27px; height: 27px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.22);
+      cursor:pointer; padding:0;
+      transition: transform .15s ease, outline-color .2s;
+      outline: 2px solid transparent; outline-offset: 1px;
+    }
+    .sw:hover{ transform: translateY(-1px); }
+    .sw.on{ outline-color: rgba(103,214,255,.65); }
+
     @media (max-width: 640px){
       .meters{ align-items:flex-start; width:100%; }
       .xplabel{ text-align:left; }
       .btn{ flex-basis: 100%; }
+      .swatches{ margin-left:0; width:100%; }
     }
 
     @media (prefers-reduced-motion: reduce){
@@ -325,10 +379,20 @@
       <p class="prompt" id="prompt"></p>
       <div class="answers" id="answers"></div>
       <p class="verdict" id="verdict" aria-live="polite"></p>
+      <p class="hint">💡 Tap any <span class="term" data-term="glossary">dotted word</span> for the breakdown.</p>
 
       <div class="foot">
         <span>GXB · Financial Command Center</span>
         <a href="https://www.notion.so/c75b70521c584921b184d729950f4bb9" target="_blank" rel="noopener">Log session → Trading Journal</a>
+      </div>
+
+      <!-- Glossary bottom sheet -->
+      <div class="gloss" id="gloss" role="dialog" aria-label="Term explanation">
+        <div class="gCard">
+          <div class="gTitle" id="glTitle"></div>
+          <p class="gBody" id="glBody"></p>
+          <button class="btn" id="gClose">Got It</button>
+        </div>
       </div>
 
       <!-- Session summary -->
@@ -387,6 +451,32 @@
 
     const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // ===== EASY EDIT: Candle color themes (up, down) =====
+    const THEMES = {
+      mint:    ["#3fe0a8", "#ff6b8b"],   // GXB default — mint / rose
+      classic: ["#22c55e", "#ef4444"],   // classic green / red
+      tv:      ["#26a69a", "#ef5350"],   // TradingView-style teal / coral
+      holo:    ["#67d6ff", "#7a5cff"]    // holo blue / violet
+    };
+
+    // ===== EASY EDIT: Glossary (tap any dotted term) =====
+    const GLOSSARY = {
+      glossary:      ["Tap To Learn", "Any word with a dotted underline is tappable. Tap it and this panel breaks the concept down in plain language. Reps + understanding = edge."],
+      atr:           ["ATR — Average True Range", "The average size of the last 14 candles. It measures how much this market typically moves right now. A 1.2×ATR stop means your stop-loss sits just outside normal candle noise — wide enough to survive wiggles, tight enough to protect capital. Stops and targets scale with volatility instead of being random numbers."],
+      r:             ["R — Your Risk Unit", "1R = the distance from your entry to your stop — the amount you're risking. Win $200 risking $100? That's +2R. Lose the $100? That's -1R. Thinking in R makes every trade comparable no matter the dollar size, and it's how pros keep score."],
+      stop:          ["Stop-Loss", "The price where you admit the trade is wrong and exit automatically. Set before you enter, never moved further away. Your stop defines your risk — everything else is built on it."],
+      target:        ["Target", "The price where you take profit. Here it's set at 2R — twice your risk. With a 2R target you only need to be right ~40% of the time to be profitable. Math over emotion."],
+      pullback:      ["Pullback", "A temporary move against the trend — the market taking a breath. In an uptrend, a few red candles dipping down. Healthy pullbacks are where the best entries live; broken pullbacks become reversals."],
+      continuation:  ["Continuation", "When the trend resumes after a pullback. The market breathes, then keeps going the same direction. Recognizing continuation early is how you enter with the trend instead of against it."],
+      reversal:      ["Reversal", "When a pullback doesn't stop — it breaks the trend's structure and the market changes direction. The line between pullback and reversal is where money is made or lost."],
+      consolidating: ["Consolidating", "The market moving sideways — no clear direction, buyers and sellers balanced. Price chops in a zone. Consolidation is a no-trade zone for trend strategies: wait for the breakout, don't force trades inside the chop."],
+      structure:     ["Market Structure", "The skeleton of the chart: the pattern of highs and lows. Uptrend = higher highs and higher lows. Downtrend = lower highs and lower lows. Structure tells you direction before any indicator does."],
+      chase:         ["Chasing", "Entering late because a move already ran and FOMO kicked in. By the time it looks 'obvious,' the easy money is gone and your stop is far from any real level. Extended moves usually breathe first — let price come to you."],
+      runner:        ["Runner", "A winning position you leave open to capture more of the trend instead of banking early. Letting winners run (while stops protect you) is how good sessions become great ones."]
+    };
+    // Wrap a label in a tappable glossary term
+    const T = (key, label) => `<span class="term" data-term="${key}">${label}</span>`;
+
     // ---------- persistence (safe in sandboxed iframes) ----------
     const STORE_KEY = "gxb_arena_v1";
     let mem = null;
@@ -399,6 +489,8 @@
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){}
     }
     let ST = loadState() || { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
+    if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "mint";
+    let CANDLES = THEMES[ST.candleTheme];
 
     // ---------- helpers ----------
     const $ = id => document.getElementById(id);
@@ -468,13 +560,13 @@
       }
       const drift2 = kind==="up" ? rnd(.3,.55) : kind==="down" ? -rnd(.3,.55) : 0;
       fut = mkBars(8, drift2, rnd(.8,1.3), bars[bars.length-1].c);
-      const label = {up:"Uptrend", down:"Downtrend", range:"Range"}[kind];
+      const label = {up:"Uptrend", down:"Downtrend", range:"Consolidating"}[kind];
       return {
         drill:"Trend Confirmation", bars, future:fut,
-        prompt:"Read the tape. What is this market doing <b>right now</b>?",
-        options:[{key:"up",label:"Uptrend"},{key:"down",label:"Downtrend"},{key:"range",label:"Range"}],
+        prompt:`Read the ${T("structure","structure")}. What is this market doing <b>right now</b>?`,
+        options:[{key:"up",label:"Uptrend"},{key:"down",label:"Downtrend"},{key:"range",label:"Consolidating"}],
         truth:kind, lines:null, isTrade:false,
-        explain:()=>`This was a <b>${label}</b>. Structure first — direction before entries.`
+        explain:()=>`This was <b>${label==="Consolidating" ? T("consolidating","Consolidating") : label}</b>. ${T("structure","Structure")} first — direction before entries.`
       };
     }
 
@@ -503,7 +595,7 @@
       const dirWord = dir>0 ? "uptrend" : "downtrend";
       return {
         drill:"Continuation Recognition", bars, future:fut,
-        prompt:`Pullback inside a <b>${dirWord}</b>. Does the move <b>continue</b> or is this a <b>reversal</b>?`,
+        prompt:`${T("pullback","Pullback")} inside a <b>${dirWord}</b>. Does the move ${T("continuation","<b>continue</b>")} or is this a ${T("reversal","<b>reversal</b>")}?`,
         options:[{key:"cont",label:"Continuation"},{key:"rev",label:"Reversal"}],
         truth, lines:null, isTrade:false,
         explain:()=> truth==="cont"
@@ -533,7 +625,7 @@
       }
       return {
         drill:"Entries", bars, future:fut,
-        prompt:"Decision candle. Stop is <b>1.2×ATR</b>, target is <b>2R</b>. What's the play?",
+        prompt:`Decision candle. ${T("stop","Stop")} is <b>${T("atr","1.2×ATR")}</b>, ${T("target","target")} is <b>${T("r","2R")}</b>. What's the play?`,
         options:[{key:"long",label:"Long"},{key:"short",label:"Short"},{key:"skip",label:"No Trade"}],
         truth, isTrade:true, entry, stopDist,
         lines:null, // filled in on answer with chosen direction
@@ -541,8 +633,8 @@
           if(res===null) return truth==="skip"
             ? "Nothing resolved cleanly — flat was the trade. Capital preserved <b>is</b> a win."
             : `There was a clean ${truth} here — review what the structure was telling you.`;
-          return res>0 ? "Target hit. Entry, stop, and structure all lined up."
-                       : "Stopped out. Loss taken at 1R exactly as planned — that's discipline, note the context.";
+          return res>0 ? `${T("target","Target")} hit. Entry, ${T("stop","stop")}, and ${T("structure","structure")} all lined up.`
+                       : `Stopped out. Loss taken at ${T("r","1R")} exactly as planned — that's discipline, note the context.`;
         }
       };
     }
@@ -570,7 +662,7 @@
       }
       return {
         drill:"Exits", bars, future:fut,
-        prompt:"You're <b>long from the marked candle</b> and in profit. Momentum check: hold for more, or bank it?",
+        prompt:`You're <b>long from the marked candle</b> and in profit. Momentum check: hold the ${T("runner","runner")}, or bank it?`,
         options:[{key:"hold",label:"Hold Runner"},{key:"exit",label:"Take Profit"}],
         truth, isTrade:false, entryMark:{idx:entryIdx, price:entry},
         lines:{entry},
@@ -605,7 +697,7 @@
       const word = dir>0 ? "ripping higher" : "dumping lower";
       return {
         drill:"Avoiding Chase Trades", bars, future:fut,
-        prompt:`Price has been <b>${word} for 8 straight candles</b> and you just spotted it. Enter here, or let it breathe?`,
+        prompt:`Price has been <b>${word} for 8 straight candles</b> and you just spotted it. ${T("chase","Chase")} it here, or let it breathe?`,
         options:[{key:"take",label: dir>0 ? "Chase It Long" : "Chase It Short"},{key:"wait",label:"Wait / No Chase"}],
         truth, isTrade:true, entry, stopDist, dir,
         lines:null,
@@ -684,7 +776,7 @@
       // candles
       function candle(b, i, ghost){
         const up = b.c >= b.o;
-        const col = up ? "#3fe0a8" : "#ff6b8b";
+        const col = up ? CANDLES[0] : CANDLES[1];
         cctx.globalAlpha = ghost ? .95 : 1;
         cctx.strokeStyle = col; cctx.fillStyle = col;
         cctx.lineWidth = Math.max(1, 1.2*DPR);
@@ -965,13 +1057,56 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         c.textContent = f === "Avoiding Chase Trades" ? "No-Chase Filter" : f;
         c.onclick = () => {
           FOCUS = f;
-          [...box.children].forEach(x=>x.classList.remove("on"));
+          [...box.querySelectorAll(".chip")].forEach(x=>x.classList.remove("on"));
           c.classList.add("on");
           newSession();
         };
         box.appendChild(c);
       }
+      buildSwatches(box);
     }
+
+    // Candle color themes — train the eye on the palette you trade with
+    function buildSwatches(box){
+      const wrap = document.createElement("div");
+      wrap.className = "swatches";
+      const lbl = document.createElement("span");
+      lbl.className = "swLbl";
+      lbl.textContent = "Candles";
+      wrap.appendChild(lbl);
+      for(const [name, [up, dn]] of Object.entries(THEMES)){
+        const b = document.createElement("button");
+        b.className = "sw" + (name===ST.candleTheme ? " on" : "");
+        b.style.background = `linear-gradient(135deg, ${up} 50%, ${dn} 50%)`;
+        b.setAttribute("aria-label", `Candle colors: ${name}`);
+        b.title = name;
+        b.onclick = () => {
+          ST.candleTheme = name;
+          CANDLES = THEMES[name];
+          saveState(ST);
+          [...wrap.querySelectorAll(".sw")].forEach(x=>x.classList.remove("on"));
+          b.classList.add("on");
+          redraw();
+        };
+        wrap.appendChild(b);
+      }
+      box.appendChild(wrap);
+    }
+
+    // Glossary: tap any dotted term
+    function openGloss(key){
+      const g = GLOSSARY[key];
+      if(!g) return;
+      $("glTitle").textContent = g[0];
+      $("glBody").textContent = g[1];
+      $("gloss").classList.add("open");
+    }
+    document.addEventListener("click", (e)=>{
+      const t = e.target.closest(".term");
+      if(t){ openGloss(t.dataset.term); return; }
+      if(e.target === $("gloss")) $("gloss").classList.remove("open");
+    });
+    $("gClose").onclick = () => $("gloss").classList.remove("open");
 
     // ---------- init ----------
     buildChips();
