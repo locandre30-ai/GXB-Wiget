@@ -26,6 +26,13 @@ Every answer reveals the "future" bars for a visual payoff. Correct calls earn X
 combo multipliers; completed sessions build a daily 🔥 streak and end with an A–F grade
 plus a **Copy Session Log** button formatted to paste straight into the Notion database.
 
+Two modes: **Guided** (per-drill "what you're looking at" briefing before you answer,
+habit-building lesson after, assist rails always on) and **Pro** (clean self-test).
+New users start Guided. Charts carry a permanent "Synthetic data · training only" badge.
+Lifetime per-skill accuracy and R persist and feed a rule-based **coach card** on the
+session summary (weakest skill, accuracy-vs-R divergence, insufficient data) — derived
+strictly from logged reps, never invented. Grade ladder: A / A- / B / C / D.
+
 Extras: an 👁 Assist toggle overlays the live decision levels on the chart —
 entry/stop/target rails on trade drills, ±1R rails on exits, and the two
 structure-break lines on continuation drills — and hides them for clean self-testing.

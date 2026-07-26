@@ -143,6 +143,58 @@
       box-shadow: 0 0 14px rgba(103,214,255,.18);
     }
     .chip.mini{ padding: 6px 11px; font-size: 11px; }
+    .chip:disabled{ opacity:.5; cursor:default; }
+
+    /* Mode row: Guided vs Pro */
+    .modeRow{ display:flex; align-items:center; gap:8px; margin: 14px 0 0; }
+    .modeLbl{ font-size: 10.5px; letter-spacing:.14em; text-transform:uppercase; color: rgba(234,242,255,.45); }
+
+    /* Guided briefing panel */
+    .guide{
+      display:none;
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(205,177,106,.3);
+      background: linear-gradient(180deg, rgba(205,177,106,.08), rgba(255,255,255,.02));
+      font-size: 13.5px; line-height: 1.55;
+      color: rgba(234,242,255,.85);
+    }
+    .guide.show{ display:block; }
+    .guide .gk{
+      font-size: 10.5px; letter-spacing:.14em; text-transform:uppercase;
+      color: var(--gold); font-weight:700; display:block; margin-bottom: 4px;
+    }
+
+    /* Synthetic data badge */
+    .synthTag{
+      position:absolute; top:8px; left:8px;
+      padding: 4px 9px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(4,6,12,.6);
+      font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+      color: rgba(234,242,255,.55);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Coach card in summary */
+    .coach{
+      text-align:left;
+      margin: 4px 0 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(103,214,255,.22);
+      background: rgba(103,214,255,.05);
+      font-size: 12.5px; line-height: 1.6;
+      color: rgba(234,242,255,.85);
+    }
+    .coach .ck{
+      font-size: 10.5px; letter-spacing:.14em; text-transform:uppercase;
+      color: var(--holoA); font-weight:700; display:block; margin-bottom: 4px;
+    }
+    .coach ul{ margin: 0; padding-left: 18px; }
+    .coach li{ margin: 3px 0; }
 
     /* Stage */
     .stage{
@@ -364,9 +416,16 @@
         </div>
       </div>
 
+      <div class="modeRow" role="group" aria-label="Mode selector">
+        <span class="modeLbl">Mode</span>
+        <button class="chip mini" id="modeGuided">🧭 Guided</button>
+        <button class="chip mini" id="modePro">⚡ Pro</button>
+      </div>
+
       <div class="chips" id="chips" role="group" aria-label="Focus area selector"></div>
 
       <div class="stage">
+        <span class="synthTag">Synthetic data · training only</span>
         <canvas id="chart"></canvas>
         <canvas id="fx"></canvas>
       </div>
@@ -379,6 +438,7 @@
       </div>
 
       <p class="prompt" id="prompt"></p>
+      <div class="guide" id="guide"><span class="gk">🧭 What you're looking at</span><span id="guideText"></span></div>
       <div class="answers" id="answers"></div>
       <p class="verdict" id="verdict" aria-live="polite"></p>
       <p class="hint">💡 Tap any <span class="term" data-term="glossary">dotted word</span> for the breakdown.</p>
@@ -410,6 +470,7 @@
             <div class="sStat"><div class="v" id="gXP">+0</div><div class="k">XP Earned</div></div>
           </div>
           <p class="sNote" id="gNote"></p>
+          <div class="coach" id="coach" style="display:none;"><span class="ck">🧠 Coach read — from your logged reps only</span><ul id="coachList"></ul></div>
           <div class="sBtns">
             <button class="btn" id="copyLog">Copy Session Log</button>
             <button class="btn next" id="again">Run It Again</button>
@@ -499,6 +560,10 @@
     if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "classic";
     let CANDLES = THEMES[ST.candleTheme];
     if(ST.assist === undefined) ST.assist = true;
+    // Guided for brand-new users, Pro for anyone with sessions already logged
+    if(!ST.mode) ST.mode = ST.sessions > 0 ? "pro" : "guided";
+    // Lifetime per-skill stats: { drill: {rounds, correct, rSum, rCount} }
+    if(!ST.skills) ST.skills = {};
 
     // Assist guide colors (brand-fixed, independent of candle theme)
     const A_GOLD = "rgba(205,177,106,.6)", A_RED = "rgba(255,107,139,.55)", A_GRN = "rgba(63,224,168,.55)";
@@ -575,6 +640,8 @@
       return {
         drill:"Trend Confirmation", bars, future:fut,
         assist:[{p:bars[0].o, c:A_GOLD, l:"START — far from here = trend"}],
+        brief:"Read the shape of the whole chart, not the last candle. Higher highs and higher lows = uptrend. Lower highs and lower lows = downtrend. Chopping sideways near the gold START line = consolidating. Ask: is price far from where it started, or still hanging around it?",
+        lesson:"Habit to build: name the structure out loud (higher highs? lower lows?) before you ever think about entering.",
         prompt:`Read the ${T("structure","structure")}. What is this market doing <b>right now</b>?`,
         options:[{key:"up",label:"Uptrend"},{key:"down",label:"Downtrend"},{key:"range",label:"Consolidating"}],
         truth:kind, lines:null, isTrade:false,
@@ -614,6 +681,8 @@
           {p:swingKeep, c:A_GRN, l: dir>0 ? "BREAK ↑ = CONTINUES" : "BREAK ↓ = CONTINUES"},
           {p:pbExtKeep, c:A_RED, l: dir>0 ? "BREAK ↓ = REVERSES" : "BREAK ↑ = REVERSES"}
         ],
+        brief:`The market trended ${dir>0?"up":"down"} hard, then the last few candles pushed against it — that push is the pullback, and it's normal. The whole question is which line breaks first: the green line (trend resumes = continuation) or the red line (pullback keeps going = reversal). Strong trend + shallow pullback usually favors continuation.`,
+        lesson:"Habit to build: mark the swing and the pullback extreme every time. The market answers at one of those two lines — you're never guessing, you're waiting.",
         prompt:`This is an <b>${dirWord}</b> taking a breath (${T("pullback","pullback")}). Does the ${dirWord} resume, or does the pullback turn into a full ${T("reversal","reversal")}?`,
         options:[{key:"cont",label:contLabel},{key:"rev",label:revLabel}],
         truth, lines:null, isTrade:false,
@@ -651,6 +720,8 @@
           {p:entry+2*stopDist, c:A_GRN, l:"TARGET if long (2R)"},
           {p:entry-2*stopDist, c:A_GRN, l:"TARGET if short (2R)"}
         ],
+        brief:"First: which way was the push before this pause? Trade WITH that push, not against it. The gold line is your entry; the red rail on your side is where you're wrong (-1R); the green rail is where you get paid (+2R). If there's no clear push — just chop — then No Trade IS the trade: protecting capital scores too.",
+        lesson:"Habit to build: risk is defined before entry, never after. If you can't say where you're wrong, you don't have a trade — you have a hope.",
         prompt:`Decision candle. ${T("stop","Stop")} is <b>${T("atr","1.2×ATR")}</b>, ${T("target","target")} is <b>${T("r","2R")}</b>. What's the play?`,
         options:[{key:"long",label:"Long"},{key:"short",label:"Short"},{key:"skip",label:"No Trade"}],
         truth, isTrade:true, entry, stopDist,
@@ -693,6 +764,8 @@
           {p:cur+R0, c:A_GRN, l:"REACHES HERE = HOLD WINS (+1R)"},
           {p:cur-R0, c:A_RED, l:"DROPS HERE = EXIT WINS (-1R)"}
         ],
+        brief:"You're already in this trade and winning — the gold marker is your entry. Now the hard part: greed vs discipline. If price reaches the green rail first, holding was right. If it drops to the red rail first, you gave profit back and banking was right. Look at the last few candles: strong closes near their highs say hold; shrinking candles and long upper wicks say the push is tired — bank it.",
+        lesson:"Habit to build: decide your exit rule BEFORE the trade. Banking profit at target beats round-tripping a winner — you can always re-enter if structure confirms.",
         prompt:`You're <b>long from the marked candle</b> and in profit. Momentum check: hold the ${T("runner","runner")}, or bank it?`,
         options:[{key:"hold",label:"Hold Runner"},{key:"exit",label:"Take Profit"}],
         truth, isTrade:false, entryMark:{idx:entryIdx, price:entry},
@@ -733,6 +806,8 @@
           {p:entry-dir*stopDist, c:A_RED, l:"STOP (1R)"},
           {p:entry+dir*2*stopDist, c:A_GRN, l:"TARGET (2R)"}
         ],
+        brief:"This move already ran 8 candles without a real breather — and you're only seeing it NOW. That feeling of 'I'm missing it' is FOMO, and it's exactly what this drill trains against. The rails show the trade you'd be taking: entering far from any structure, with your stop hanging in air. Extended moves usually pull back first. Waiting is a position.",
+        lesson:"Habit to build: if your reason for entering is 'it already moved,' that's not a reason — wait for the pullback and let price come to you.",
         prompt:`Price has been <b>${word} for 8 straight candles</b> and you just spotted it. ${T("chase","Chase")} it here, or let it breathe?`,
         options:[{key:"take",label: dir>0 ? "Chase It Long" : "Chase It Short"},{key:"wait",label:"Wait / No Chase"}],
         truth, isTrade:true, entry, stopDist, dir,
@@ -778,7 +853,7 @@
       if(sc && sc.lines){
         for(const v of Object.values(sc.lines)){ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v);} }
       }
-      const showAssist = ST.assist && sc && sc.assist && !(sc.lines && sc.lines.stop!=null);
+      const showAssist = (ST.assist || ST.mode==="guided") && sc && sc.assist && !(sc.lines && sc.lines.stop!=null);
       if(showAssist){
         for(const a of sc.assist){ lo=Math.min(lo,a.p); hi=Math.max(hi,a.p); }
       }
@@ -920,8 +995,15 @@
       $("roundLbl").textContent = `Round ${SES.round} / ${ROUNDS_PER_SESSION}`;
       $("prompt").innerHTML = `<b>${CUR.drill}:</b> ${CUR.prompt}`;
       $("verdict").innerHTML = "";
+      paintGuide();
       renderAnswers();
       redraw();
+    }
+
+    function paintGuide(){
+      const on = ST.mode === "guided" && CUR && CUR.brief;
+      $("guide").classList.toggle("show", !!on);
+      if(on) $("guideText").textContent = CUR.brief;
     }
 
     function renderAnswers(){
@@ -973,6 +1055,10 @@
       if(tradeR !== null) SES.rTotal += tradeR;
       SES.results.push({drill: CUR.drill, correct, r: tradeR});
       SES.focusCounts[CUR.drill] = (SES.focusCounts[CUR.drill]||0) + (correct?1:0);
+      // lifetime per-skill stats (feeds the coach — logged reps only)
+      const sk = ST.skills[CUR.drill] || (ST.skills[CUR.drill] = {rounds:0, correct:0, rSum:0, rCount:0});
+      sk.rounds++; if(correct) sk.correct++;
+      if(tradeR !== null){ sk.rSum += tradeR; sk.rCount++; }
       if(correct){
         SES.correct++;
         SES.combo++;
@@ -1001,7 +1087,8 @@
       $("verdict").innerHTML =
         (correct ? `<span class="win">Correct</span>` : `<span class="loss">Missed</span> — answer: <b>${truthLabel}</b>`) +
         rTxt + `. ` + CUR.explain(tradeR) +
-        (correct && SES.combo>=2 ? ` <span class="xp">Combo x${SES.combo}!</span>` : "");
+        (correct && SES.combo>=2 ? ` <span class="xp">Combo x${SES.combo}!</span>` : "") +
+        (ST.mode==="guided" && CUR.lesson ? `<br><span style="color:var(--gold)">🧭 ${CUR.lesson}</span>` : "");
 
       $("comboLbl").textContent = SES.combo>=2 ? `⚡ Combo x${SES.combo}` : "";
       $("rLbl").textContent = `Session R: ${SES.rTotal>0?"+":""}${SES.rTotal.toFixed(1)}`;
@@ -1029,12 +1116,13 @@
     }
 
     // ---------- session end ----------
+    // Grade ladder per GXB Arena spec: A / A- / B / C / D
     function gradeFor(acc){
-      return acc>=80 ? "A" : acc>=70 ? "B" : acc>=60 ? "C" : acc>=45 ? "D" : "F";
+      return acc>=90 ? "A" : acc>=80 ? "A-" : acc>=70 ? "B" : acc>=55 ? "C" : "D";
     }
     const GRADE_TITLES = {
-      A:"Sniper Session", B:"Sharp — Keep Stacking", C:"Building Reps",
-      D:"Rough Tape — Review It", F:"Reset & Return"
+      "A":"Sniper Session", "A-":"Elite — One Away", "B":"Sharp — Keep Stacking",
+      "C":"Building Reps", "D":"Rough Tape — Review It"
     };
 
     function finishSession(){
@@ -1062,6 +1150,30 @@
       $("gXP").textContent = "+" + SES.xpGained;
       $("gNote").textContent = `🔥 Day streak: ${ST.dayStreak} · Sessions completed: ${ST.sessions}. ` +
         `Copy the log below into ICC Practice Sessions to keep the journal compounding.`;
+
+      // Coach read — rule-based, strictly from logged reps
+      const tips = [];
+      const skillsWithData = Object.entries(ST.skills).filter(([,s]) => s.rounds >= 5);
+      if(skillsWithData.length){
+        const weakest = skillsWithData
+          .map(([name,s]) => ({name, acc: 100*s.correct/s.rounds}))
+          .sort((a,b) => a.acc - b.acc)[0];
+        if(weakest.acc < 75)
+          tips.push(`Weakest skill: <b>${weakest.name}</b> (${Math.round(weakest.acc)}% over ${ST.skills[weakest.name].rounds} reps) — run focused sessions on that chip.`);
+      }
+      const lifeRounds = Object.values(ST.skills).reduce((t,s)=>t+s.rounds,0);
+      const lifeCorrect = Object.values(ST.skills).reduce((t,s)=>t+s.correct,0);
+      const lifeR = Object.values(ST.skills).reduce((t,s)=>t+s.rSum,0);
+      const lifeRCount = Object.values(ST.skills).reduce((t,s)=>t+s.rCount,0);
+      if(lifeRounds >= 10 && lifeRCount >= 3 && (100*lifeCorrect/lifeRounds) >= 70 && lifeR < 0)
+        tips.push(`High accuracy (${Math.round(100*lifeCorrect/lifeRounds)}%) but negative lifetime R (${lifeR.toFixed(1)}) — that's a <b>trade management leak</b>, not a reading problem. Bank targets, respect stops.`);
+      const thin = FOCI.slice(1).filter(f => !ST.skills[f] || ST.skills[f].rounds < 5);
+      if(thin.length === FOCI.length-1)
+        tips.push(`Early data: under 5 reps on every skill — the coach sharpens as your reps stack.`);
+      else if(thin.length)
+        tips.push(`Not enough data yet on: ${thin.join(", ")} (under 5 reps each).`);
+      $("coach").style.display = tips.length ? "block" : "none";
+      $("coachList").innerHTML = tips.slice(0,3).map(t=>`<li>${t}</li>`).join("");
 
       const focusUsed = FOCUS==="All Drills" ? Object.keys(SES.focusCounts).join(", ") : FOCUS;
       $("logBox").value =
@@ -1162,22 +1274,36 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     });
     $("gClose").onclick = () => $("gloss").classList.remove("open");
 
-    // Assist toggle: show/hide guide lines, persisted
+    // Assist toggle: show/hide guide lines, persisted (always on in Guided mode)
     function paintAssist(){
-      $("assistBtn").classList.toggle("on", ST.assist);
-      $("assistBtn").textContent = ST.assist ? "👁 Assist On" : "👁 Assist Off";
+      const guided = ST.mode === "guided";
+      $("assistBtn").disabled = guided;
+      $("assistBtn").classList.toggle("on", ST.assist || guided);
+      $("assistBtn").textContent = guided ? "👁 Assist On (Guided)" : ST.assist ? "👁 Assist On" : "👁 Assist Off";
     }
     $("assistBtn").onclick = () => {
+      if(ST.mode === "guided") return;
       ST.assist = !ST.assist;
       saveState(ST);
       paintAssist();
       redraw();
     };
 
+    // Mode toggle: Guided (briefings + lessons + rails) vs Pro (clean self-test)
+    function paintMode(){
+      $("modeGuided").classList.toggle("on", ST.mode === "guided");
+      $("modePro").classList.toggle("on", ST.mode === "pro");
+      paintAssist();
+      paintGuide();
+      redraw();
+    }
+    $("modeGuided").onclick = () => { ST.mode = "guided"; saveState(ST); paintMode(); };
+    $("modePro").onclick = () => { ST.mode = "pro"; saveState(ST); paintMode(); };
+
     // ---------- init ----------
     buildChips();
     paintMeters();
-    paintAssist();
+    paintMode();
     new ResizeObserver(sizeCanvases).observe(chart);
     sizeCanvases();
     newSession();
