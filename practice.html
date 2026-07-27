@@ -178,6 +178,30 @@
       pointer-events: none;
     }
 
+    /* Kingdom note in summary — earned affirmation + its evidence */
+    .kingdom{
+      text-align:left;
+      margin: 4px 0 10px;
+      padding: 13px 15px;
+      border-radius: 12px;
+      border: 1px solid rgba(205,177,106,.35);
+      background: linear-gradient(180deg, rgba(205,177,106,.10), rgba(205,177,106,.03));
+    }
+    .kingdom .kk{
+      font-size: 10.5px; letter-spacing:.14em; text-transform:uppercase;
+      color: var(--gold); font-weight:700; display:block; margin-bottom: 6px;
+    }
+    .kingdom .kLine{
+      margin: 0 0 6px;
+      font-size: 15px; line-height: 1.45; font-weight: 600;
+      color: rgba(234,242,255,.95);
+    }
+    .kingdom .kWhy{
+      margin: 0;
+      font-size: 12px; line-height: 1.5;
+      color: rgba(234,242,255,.62);
+    }
+
     /* Coach card in summary */
     .coach{
       text-align:left;
@@ -470,6 +494,11 @@
             <div class="sStat"><div class="v" id="gXP">+0</div><div class="k">XP Earned</div></div>
           </div>
           <p class="sNote" id="gNote"></p>
+          <div class="kingdom" id="kingdom" style="display:none;">
+            <span class="kk">👑 Kingdom Note</span>
+            <p class="kLine" id="kLine"></p>
+            <p class="kWhy" id="kWhy"></p>
+          </div>
           <div class="coach" id="coach" style="display:none;"><span class="ck">🧠 Coach read — from your logged reps only</span><ul id="coachList"></ul></div>
           <div class="sBtns">
             <button class="btn" id="copyLog">Copy Session Log</button>
@@ -513,6 +542,106 @@
     ];
 
     const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /* ===== EASY EDIT: Kingdom voice bank =====
+      Affirmations are EARNED, never decorative. Each rule fires only when the
+      session data actually satisfies it, and every line ships paired with the
+      evidence sentence that triggered it (mindset + proof, together).
+      Rules are evaluated top-down; the first match wins, so the most
+      meaningful read for that session is the one shown. Tone: grounded,
+      elevated, intentional — never hype, never corporate.
+    ========================================== */
+    const KINGDOM_NOTES = [
+      { // The honest one: read well but bled R. No congratulation here.
+        when: c => c.acc >= 70 && c.rTotal < 0,
+        lines: [
+          "Reading the chart is vision. Keeping the R is stewardship. Today the vision outran the stewardship — that's the gap to close.",
+          "Correction isn't failure. It's the throne adjusting its own posture before it costs you more.",
+          "Being right is ego. Being paid is discipline. Today the tape gave you the read and took the reward."
+        ],
+        why: c => `Earned this read: ${c.correct}/${c.rounds} correct but ${c.rTotal.toFixed(1)}R on the session — accuracy high, management leaking.`
+      },
+      { // Big R banked
+        when: c => c.rTotal >= 5,
+        lines: [
+          "Wealth isn't built by being right. It's built by managing what being right pays you.",
+          "This is what discipline looks like on a balance sheet.",
+          "You didn't chase the money today. You let the process hand it to you."
+        ],
+        why: c => `Earned this read: +${c.rTotal.toFixed(1)}R banked across ${c.rounds} decisions.`
+      },
+      { // Deep focused work on one skill
+        when: c => c.focused && c.acc >= 80,
+        lines: [
+          "Mastery is depth, not variety. You went deep and it answered.",
+          "One skill, sharpened all the way through, outperforms five held loosely.",
+          "This is how an anchor skill gets built — the same rep, until it becomes instinct."
+        ],
+        why: c => `Earned this read: focused ${c.focused} session, ${c.correct}/${c.rounds} correct${c.rTotal>0?` and +${c.rTotal.toFixed(1)}R`:``}.`
+      },
+      { // Sustained focus / combo
+        when: c => c.bestCombo >= 6,
+        lines: [
+          "That's not luck. That's frequency — the same clear mind, decision after decision.",
+          "Locked in. The chart didn't change; your attention did.",
+          "Consecutive correct reads are what presence looks like in numbers."
+        ],
+        why: c => `Earned this read: ${c.bestCombo} correct calls back to back.`
+      },
+      { // Patience / refusing bad trades
+        when: c => c.waits >= 2 && c.rTotal >= 0,
+        lines: [
+          "A king doesn't chase. He sets the terms and waits for the market to meet them.",
+          "The trades you refused protected the capital that funds the ones you take.",
+          "Sitting out isn't inaction. It's a decision with a price you chose not to pay."
+        ],
+        why: c => `Earned this read: ${c.waits} correct stand-asides and no R given back.`
+      },
+      { // Zero losses, capital intact
+        when: c => c.losses === 0 && c.rTotal >= 0 && c.rounds > 0,
+        lines: [
+          "Capital protected is capital compounding. Nothing bled today.",
+          "Discipline is the asset. Returns are just its echo.",
+          "You kept the account whole. That's the foundation everything else is built on."
+        ],
+        why: c => `Earned this read: ${c.rounds} decisions, zero stopped-out trades.`
+      },
+      { // Consistency streak
+        when: c => c.dayStreak >= 3,
+        lines: [
+          "Consistency is the compound interest of character.",
+          "Showing up on the quiet days is the whole practice. Anyone can show up on the loud ones.",
+          "The reps nobody sees become the results everyone does."
+        ],
+        why: c => `Earned this read: ${c.dayStreak} straight days in the Arena.`
+      },
+      { // Rough session — resilience, no false praise
+        when: c => c.acc < 55,
+        lines: [
+          "Rough tape is tuition. You paid it here, in practice, where it costs nothing but pride.",
+          "You don't escape the noise — you learn to operate above it. Today was the learning.",
+          "A hard session honestly logged is worth more than an easy one forgotten."
+        ],
+        why: c => `Earned this read: ${c.correct}/${c.rounds} on difficult tape — logged instead of avoided.`
+      },
+      { // Fallback — always true
+        when: () => true,
+        lines: [
+          "Every rep is a deposit. This one is logged.",
+          "Legacy is built one honest rep at a time.",
+          "You came back. That's the part most people skip."
+        ],
+        why: c => `Earned this read: ${c.correct}/${c.rounds} correct, session logged and counted.`
+      }
+    ];
+
+    // Short in-session lines for combo milestones — the moment worth marking.
+    const COMBO_NOTES = [
+      "👑 Locked in. That's frequency, not luck.",
+      "👑 Same clear mind, five decisions deep.",
+      "👑 This is what presence looks like on a chart.",
+      "👑 Rhythm found. Protect it."
+    ];
 
     // ===== EASY EDIT: Candle color themes (up, down) =====
     // Each theme is psychologically distinct — not four shades of green/red:
@@ -1166,7 +1295,9 @@
         round: 0, correct: 0, results: [],
         rTotal: 0, combo: 0, bestCombo: 0,
         xpGained: 0, start: Date.now(),
-        focusCounts: {}
+        focusCounts: {},
+        waits: 0,   // correct stand-asides (No Trade / No Chase) — capital protection
+        losses: 0   // trades that hit their stop
       };
       $("summary").classList.remove("open");
       $("logBox").style.display = "none";
@@ -1244,6 +1375,8 @@
 
       const correct = key === CUR.truth;
       if(tradeR !== null) SES.rTotal += tradeR;
+      if(tradeR !== null && tradeR < 0) SES.losses++;
+      if(correct && (key === "skip" || key === "wait")) SES.waits++;
       SES.results.push({drill: CUR.drill, correct, r: tradeR});
       SES.focusCounts[CUR.drill] = (SES.focusCounts[CUR.drill]||0) + (correct?1:0);
       // lifetime per-skill stats (feeds the coach — logged reps only)
@@ -1279,6 +1412,9 @@
         (correct ? `<span class="win">Correct</span>` : `<span class="loss">Missed</span> — answer: <b>${truthLabel}</b>`) +
         rTxt + `. ` + CUR.explain(tradeR) +
         (correct && SES.combo>=2 ? ` <span class="xp">Combo x${SES.combo}!</span>` : "") +
+        // Mark the milestone moments — earned, every 5 in a row
+        (correct && SES.combo>=5 && SES.combo%5===0
+          ? `<br><span style="color:var(--gold);font-weight:600">${pick(COMBO_NOTES)}</span>` : "") +
         // Honesty on borderline tape: a miss on a low-conviction setup is variance,
         // not a misread — say so rather than implying the read was wrong.
         (!correct && CUR.conviction === "mixed"
@@ -1345,6 +1481,23 @@
       $("gXP").textContent = "+" + SES.xpGained;
       $("gNote").textContent = `🔥 Day streak: ${ST.dayStreak} · Sessions completed: ${ST.sessions}. ` +
         `Copy the log below into ICC Practice Sessions to keep the journal compounding.`;
+
+      // Kingdom note — earned affirmation paired with the evidence that fired it
+      const kctx = {
+        acc, correct: SES.correct, rounds: ROUNDS_PER_SESSION,
+        rTotal: SES.rTotal, bestCombo: SES.bestCombo,
+        waits: SES.waits, losses: SES.losses,
+        dayStreak: ST.dayStreak,
+        focused: FOCUS === "All Drills" ? null : FOCUS
+      };
+      const note = KINGDOM_NOTES.find(n => n.when(kctx));
+      if(note){
+        $("kLine").textContent = pick(note.lines);
+        $("kWhy").textContent = note.why(kctx);
+        $("kingdom").style.display = "block";
+      } else {
+        $("kingdom").style.display = "none";
+      }
 
       // Coach read — rule-based, strictly from logged reps
       const tips = [];
