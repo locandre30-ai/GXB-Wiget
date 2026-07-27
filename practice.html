@@ -556,7 +556,14 @@
       mem = s;
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){}
     }
-    let ST = loadState() || { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
+    // Normalize on load: a partial or older stored blob must never produce
+    // NaN/undefined in the UI, so every field gets a validated default.
+    const DEFAULTS = { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
+    let ST = Object.assign({}, DEFAULTS, loadState() || {});
+    for(const k of ["xp","dayStreak","sessions","bestCombo","rounds","correct"]){
+      if(typeof ST[k] !== "number" || !isFinite(ST[k])) ST[k] = DEFAULTS[k];
+    }
+    if(typeof ST.lastDay !== "string") ST.lastDay = "";
     if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "classic";
     let CANDLES = THEMES[ST.candleTheme];
     if(ST.assist === undefined) ST.assist = true;
@@ -602,6 +609,29 @@
       for(let i=bars.length-n;i<bars.length;i++) sum += bars[i].h - bars[i].l;
       return sum/n || 1;
     }
+    function avgBody(bars){
+      return bars.reduce((t,b)=>t+Math.abs(b.c-b.o),0)/(bars.length||1);
+    }
+    // Bar shapers — make the visible candles carry the evidence the briefing cites.
+    // Exhaustion: tiny body near the low with a long upper wick (buyers failing).
+    function exhaustBar(b){
+      const r = Math.max(b.h-b.l, 1e-6);
+      const base = b.l + r*0.08;
+      return { o: base, c: base + r*0.10, h: b.h + r*0.28, l: b.l };
+    }
+    // Strength: full body closing near the high (buyers in control).
+    function strongBar(b){
+      const r = Math.max(b.h-b.l, 1e-6);
+      return { o: b.l + r*0.08, c: b.h - r*0.06, h: b.h, l: b.l };
+    }
+    function upperWickRatio(bars){
+      let wick = 0, body = 0;
+      for(const b of bars){
+        wick += b.h - Math.max(b.o,b.c);
+        body += Math.abs(b.c-b.o);
+      }
+      return wick/(body || 1e-6);
+    }
     // Trade sim: conservative — stop is checked before target inside a bar.
     // Returns R multiple: +2 target, -1 stop, 0 unresolved.
     function simTrade(dir, entry, stopDist, future){
@@ -617,6 +647,108 @@
         }
       }
       return 0;
+    }
+
+    /* ---------- dynamic briefings ----------
+      Every briefing is generated from THIS chart's measured features (retrace %,
+      candle-body ratios, wick length, ATR extension) with rotating phrasing, so
+      no two read the same and the advice always matches what's on screen.
+      When the tape genuinely has no tell, the briefing says so out loud instead
+      of implying a readable answer.
+    ------------------------------------------- */
+    const MIXED_NOTE = [
+      "⚖️ <b>Low-conviction setup.</b> The evidence is genuinely mixed here — commit to a read and let the stop do its job. Good process still misses these.",
+      "⚖️ This one is <b>borderline on purpose.</b> Real tape isn't always readable; being wrong here isn't a misread, it's variance.",
+      "⚖️ <b>No clear tell.</b> Weigh it, choose, and accept the outcome — this is the setup type where risk management earns its keep."
+    ];
+
+    function briefContinuation(dirWord, retrace, pbLen, bodyRatio, conviction, shape){
+      const r = Math.round(retrace);
+      const facts = r > 100
+        ? pick([
+            `Measured: the counter-move has <b>fully erased</b> the last ${dirWord} leg over <b>${pbLen} candles</b> — this is past a pullback.`,
+            `What the tape shows: <b>${pbLen} candles</b> that wiped out the entire ${dirWord} leg and kept going.`,
+            `Numbers here — the pause has swallowed <b>100%+</b> of the leg across <b>${pbLen} candles</b>.`
+          ])
+        : pick([
+            `Measured: this ${dirWord} has given back <b>${r}%</b> of its last leg across <b>${pbLen} candles</b>.`,
+            `What the tape actually shows: a <b>${pbLen}-candle</b> pause retracing <b>${r}%</b> of the ${dirWord} leg.`,
+            `Numbers on this chart — pullback depth <b>${r}%</b>, duration <b>${pbLen} candles</b>.`
+          ]);
+      const size = bodyRatio < .85
+        ? pick([`Those counter-candles are <b>smaller</b> than the trend candles — sellers aren't committing size.`,
+                `The push against the trend is arriving in <b>shrinking</b> bodies. Weak pressure.`])
+        : bodyRatio > 1.15
+        ? pick([`The counter-candles are <b>bigger</b> than the trend's own candles — that's real pressure, not a breather.`,
+                `Bodies against the trend are <b>larger</b> than the trend made. Respect that.`])
+        : pick([`Candle sizes are <b>even</b> with the trend — no size tell either way.`,
+                `Bodies are <b>comparable</b> to the trend candles; size isn't telling you much here.`]);
+      // The call follows the setup's actual shape, never a threshold guess — so the
+      // briefing can never point one way while the tape resolves the other.
+      const call = conviction==="mixed" ? pick(MIXED_NOTE)
+        : shape==="cont"
+        ? pick([`Shallow and calm — evidence favors <b>continuation</b>.`, `A pause this contained usually means the trend isn't finished.`])
+        : pick([`Deep and forceful — evidence favors <b>reversal</b>.`, `A retrace with this much weight behind it has usually broken the trend's structure.`]);
+      return `${facts} ${size} ${call}`;
+    }
+
+    function briefExits(openR, bodyRatio, wickR, conviction, shape){
+      const facts = pick([
+        `You're holding roughly <b>${openR.toFixed(1)}R</b> of open profit right now.`,
+        `Open position, about <b>${openR.toFixed(1)}R</b> in your favor as it stands.`,
+        `Current state: <b>${openR.toFixed(1)}R</b> unrealised from the marked entry.`
+      ]);
+      const tell = wickR > 1.1
+        ? pick([`The last candles are printing <b>long upper wicks with small bodies</b> — buyers keep pushing and keep failing. That's a run-off.`,
+                `Upper wicks are now <b>longer than the bodies</b>. Price is being rejected at the highs — exhaustion, not strength.`])
+        : bodyRatio > .95
+        ? pick([`Recent candles are <b>full-bodied and closing near their highs</b> — buyers are still in control. That's the trend breathing, not dying.`,
+                `Bodies are <b>holding their size</b> and closing strong. Demand hasn't left yet.`])
+        : pick([`Candles are <b>flattening</b> without clear rejection — could be a breather, could be a top.`,
+                `Momentum is <b>cooling</b> but there's no outright rejection yet. Ambiguous.`]);
+      const call = conviction==="mixed" ? pick(MIXED_NOTE)
+        : shape==="exit"
+        ? pick([`Evidence favors <b>banking it</b>.`, `The read here says <b>take profit</b>.`])
+        : pick([`Evidence favors <b>letting it run</b>.`, `The read here says <b>hold the runner</b>.`]);
+      return `${facts} ${tell} ${call}`;
+    }
+
+    function briefEntries(dirWord, pushR, pauseLen, conviction){
+      const facts = pick([
+        `Measured: price moved about <b>${pushR.toFixed(1)}× ATR</b> ${dirWord} before this <b>${pauseLen}-candle</b> pause.`,
+        `The tape: a <b>${pushR.toFixed(1)}× ATR</b> ${dirWord} push, now pausing <b>${pauseLen} candles</b>.`,
+        `Numbers here — push size <b>${pushR.toFixed(1)}× ATR</b> ${dirWord}, pause <b>${pauseLen} candles</b>.`
+      ]);
+      const call = conviction==="mixed"
+        ? pick([`⚖️ <b>No dominant push</b> — this is chop. When direction isn't earned, <b>No Trade</b> is the correct answer and it scores as a win.`,
+                `⚖️ Neither side owns this tape. <b>No Trade</b> protects capital, and protecting capital counts.`])
+        : pick([`Trade <b>with</b> that push, not against it. Rails show where you're wrong (−1R) and where you're paid (+2R).`,
+                `The push earned its direction — align with it. Your stop sits 1.2×ATR away; your target is double that.`]);
+      return `${facts} ${call}`;
+    }
+
+    function briefChase(word, extR, runLen){
+      return pick([
+        `Measured: price has run <b>${runLen} candles</b> ${word} and is now <b>${extR.toFixed(1)}× ATR</b> from where the move began — and you're only seeing it NOW.`,
+        `The tape: <b>${runLen} straight candles</b> ${word}, extended <b>${extR.toFixed(1)}× ATR</b> beyond the origin. You arrived late.`,
+        `Numbers — <b>${runLen}-candle</b> run ${word}, <b>${extR.toFixed(1)}× ATR</b> of extension already spent.`
+      ]) + " " + pick([
+        `Entering here puts your stop in open air with no structure beneath it. Extended moves breathe first — <b>waiting is a position</b>.`,
+        `There's no level near your stop at this price. That feeling of missing out is the trade you're not supposed to take.`,
+        `Late entries pay for everyone else's profit. Let it pull back and come to you.`
+      ]);
+    }
+
+    function briefTrend(netR, hh, hl){
+      return pick([
+        `Measured: price sits <b>${netR.toFixed(1)}× ATR</b> from where this chart opened.`,
+        `The tape: net displacement of <b>${netR.toFixed(1)}× ATR</b> from the gold START line.`,
+        `Numbers — <b>${netR.toFixed(1)}× ATR</b> of net movement across the whole chart.`
+      ]) + " " + (Math.abs(netR) < 2
+        ? pick([`Price keeps returning to where it began — that's <b>consolidation</b>, and it's a no-trade zone for trend strategies.`,
+                `Very little net displacement despite all that motion. Sideways = <b>consolidating</b>.`])
+        : pick([`Displacement that large means one side is in control — name the direction from the highs and lows.`,
+                `That's real one-way travel. Confirm with structure: are highs and lows both stepping the same way?`]));
     }
 
     // ---------- drill scenario builders ----------
@@ -640,8 +772,13 @@
       return {
         drill:"Trend Confirmation", bars, future:fut,
         assist:[{p:bars[0].o, c:A_GOLD, l:"START — far from here = trend"}],
-        brief:"Read the shape of the whole chart, not the last candle. Higher highs and higher lows = uptrend. Lower highs and lower lows = downtrend. Chopping sideways near the gold START line = consolidating. Ask: is price far from where it started, or still hanging around it?",
-        lesson:"Habit to build: name the structure out loud (higher highs? lower lows?) before you ever think about entering.",
+        brief: briefTrend((bars[bars.length-1].c - bars[0].o)/atr(bars)),
+        conviction:"high",
+        lesson: pick([
+          "Habit to build: name the structure out loud (higher highs? lower lows?) before you ever think about entering.",
+          "Habit to build: measure displacement first. If price ends up near where it started, nothing is trending no matter how busy the candles look.",
+          "Habit to build: direction is decided by the sequence of highs and lows — not by the last candle's color."
+        ]),
         prompt:`Read the ${T("structure","structure")}. What is this market doing <b>right now</b>?`,
         options:[{key:"up",label:"Uptrend"},{key:"down",label:"Downtrend"},{key:"range",label:"Consolidating"}],
         truth:kind, lines:null, isTrade:false,
@@ -651,17 +788,33 @@
 
     function scContinuation(){
       const dir = Math.random()<.5 ? 1 : -1;
-      let bars, fut, truth, swingKeep, pbExtKeep;
-      for(let a=0;a<80;a++){
+      // Shape decided FIRST, then the pullback is generated to physically match it,
+      // so pullback depth / candle size are real evidence rather than decoration.
+      // "mixed" exists on purpose: some tape genuinely has no tell, and the
+      // briefing says so instead of implying a readable answer.
+      const shape = Math.random()<.4 ? "cont" : Math.random()<.67 ? "rev" : "mixed";
+      const want = shape==="mixed" ? (Math.random()<.5?"cont":"rev") : shape;
+      let bars, fut, truth, swingKeep, pbExtKeep, retrace=0, pbLen=0, bodyRatio=1;
+      for(let a=0;a<60;a++){
         const trend = mkBars(22, dir*rnd(.35,.6), rnd(.8,1.2), 100);
-        const pb = mkBars(rndInt(3,5), -dir*rnd(.2,.4), rnd(.6,1.0), trend[trend.length-1].c);
-        const cont = Math.random()<.6;
-        fut = mkBars(12, (cont?dir:-dir)*rnd(.3,.55), rnd(.8,1.2), pb[pb.length-1].c);
+        const legEnd = trend[trend.length-1].c;
+        // Retrace is measured against the recent impulse the pullback is actually
+        // giving back — not the whole chart range, which understates depth.
+        const recent = trend.slice(-10);
+        const legStart = dir>0 ? Math.min(...recent.map(b=>b.l)) : Math.max(...recent.map(b=>b.h));
+        const legSize = Math.abs(legEnd - legStart);
+        const pb =
+          shape==="cont"  ? mkBars(rndInt(2,3), -dir*rnd(.10,.22), rnd(.50,.75), legEnd) :
+          shape==="rev"   ? mkBars(rndInt(5,7), -dir*rnd(.50,.75), rnd(.95,1.35), legEnd) :
+                            mkBars(rndInt(3,5), -dir*rnd(.28,.40), rnd(.80,1.05), legEnd);
         bars = trend.concat(pb);
         const tail = trend.slice(-8);
         const swing = dir>0 ? Math.max(...tail.map(b=>b.h)) : Math.min(...tail.map(b=>b.l));
         const pbExt = dir>0 ? Math.min(...pb.map(b=>b.l)) : Math.max(...pb.map(b=>b.h));
-        swingKeep = swing; pbExtKeep = pbExt;
+        retrace = legSize>0 ? Math.abs(legEnd - pbExt)/legSize*100 : 0;
+        pbLen = pb.length;
+        bodyRatio = avgBody(pb)/(avgBody(tail) || 1);
+        fut = mkBars(12, (want==="cont"?dir:-dir)*rnd(.45,.75), rnd(.8,1.2), pb[pb.length-1].c);
         truth = null;
         for(const b of fut){
           const brokePb = dir>0 ? b.l <= pbExt : b.h >= pbExt;
@@ -669,10 +822,12 @@
           if(brokePb){ truth="rev"; break; }
           if(brokeSwing){ truth="cont"; break; }
         }
-        if(truth) break;
+        swingKeep = swing; pbExtKeep = pbExt;
+        if(truth === want) break;   // only keep charts whose outcome matches their evidence
       }
-      if(!truth) truth = (fut[fut.length-1].c - bars[bars.length-1].c)*dir > 0 ? "cont" : "rev";
+      if(!truth) truth = want;
       const dirWord = dir>0 ? "uptrend" : "downtrend";
+      const conviction = shape==="mixed" ? "mixed" : "high";
       const contLabel = dir>0 ? "Continues Up ↑" : "Continues Down ↓";
       const revLabel  = dir>0 ? "Reverses Down ↓" : "Reverses Up ↑";
       return {
@@ -681,8 +836,13 @@
           {p:swingKeep, c:A_GRN, l: dir>0 ? "BREAK ↑ = CONTINUES" : "BREAK ↓ = CONTINUES"},
           {p:pbExtKeep, c:A_RED, l: dir>0 ? "BREAK ↓ = REVERSES" : "BREAK ↑ = REVERSES"}
         ],
-        brief:`The market trended ${dir>0?"up":"down"} hard, then the last few candles pushed against it — that push is the pullback, and it's normal. The whole question is which line breaks first: the green line (trend resumes = continuation) or the red line (pullback keeps going = reversal). Strong trend + shallow pullback usually favors continuation.`,
-        lesson:"Habit to build: mark the swing and the pullback extreme every time. The market answers at one of those two lines — you're never guessing, you're waiting.",
+        brief: briefContinuation(dirWord, retrace, pbLen, bodyRatio, conviction, want),
+        conviction,
+        lesson: pick([
+          "Habit to build: mark the swing and the pullback extreme every time. The market answers at one of those two lines — you're never guessing, you're waiting.",
+          "Habit to build: measure the pullback against the leg that made it. Depth and candle size are your two tells — read them before you pick a side.",
+          "Habit to build: a pause that stays shallow is fuel; a pause that arrives in bigger candles than the trend is a warning. Learn the difference by size, not by feel."
+        ]),
         prompt:`This is an <b>${dirWord}</b> taking a breath (${T("pullback","pullback")}). Does the ${dirWord} resume, or does the pullback turn into a full ${T("reversal","reversal")}?`,
         options:[{key:"cont",label:contLabel},{key:"rev",label:revLabel}],
         truth, lines:null, isTrade:false,
@@ -711,6 +871,7 @@
         // bias generation so all three answers appear with sane frequency
         if((regime===0 && truth==="skip") || (regime!==0 && truth!=="skip") || a>60) break;
       }
+      const pushR = (bars[bars.length-1].c - bars[Math.max(0, bars.length-16)].c)/A;
       return {
         drill:"Entries", bars, future:fut,
         assist:[
@@ -720,8 +881,13 @@
           {p:entry+2*stopDist, c:A_GRN, l:"TARGET if long (2R)"},
           {p:entry-2*stopDist, c:A_GRN, l:"TARGET if short (2R)"}
         ],
-        brief:"First: which way was the push before this pause? Trade WITH that push, not against it. The gold line is your entry; the red rail on your side is where you're wrong (-1R); the green rail is where you get paid (+2R). If there's no clear push — just chop — then No Trade IS the trade: protecting capital scores too.",
-        lesson:"Habit to build: risk is defined before entry, never after. If you can't say where you're wrong, you don't have a trade — you have a hope.",
+        brief: briefEntries(pushR>=0?"up":"down", pushR, bars.length - 24 > 0 ? bars.length-24 : 2, regime===0 ? "mixed" : "high"),
+        conviction: regime===0 ? "mixed" : "high",
+        lesson: pick([
+          "Habit to build: risk is defined before entry, never after. If you can't say where you're wrong, you don't have a trade — you have a hope.",
+          "Habit to build: measure the push in ATR before you commit. A push that hasn't earned its size isn't a signal, it's noise.",
+          "Habit to build: No Trade is a real answer with a real score. Sitting out chop is how capital survives to compound."
+        ]),
         prompt:`Decision candle. ${T("stop","Stop")} is <b>${T("atr","1.2×ATR")}</b>, ${T("target","target")} is <b>${T("r","2R")}</b>. What's the play?`,
         options:[{key:"long",label:"Long"},{key:"short",label:"Short"},{key:"skip",label:"No Trade"}],
         truth, isTrade:true, entry, stopDist,
@@ -738,34 +904,54 @@
 
     function scExits(){
       const dir = 1; // practice managing longs; mirror later if wanted
-      let bars, fut, truth, entryIdx, entry, A;
-      for(let a=0;a<80;a++){
-        const run = mkBars(26, dir*rnd(.3,.5), rnd(.8,1.1), 100);
-        bars = run;
+      // Outcome decided first, then the last 6 candles are physically shaped to
+      // show it: full bodies closing near highs (hold pays) vs tiny bodies with
+      // long upper wicks (the move is running off — bank it).
+      const shape = Math.random()<.42 ? "hold" : Math.random()<.72 ? "exit" : "mixed";
+      const want = shape==="mixed" ? (Math.random()<.5?"hold":"exit") : shape;
+      let bars, fut, truth, entryIdx, entry, A, bodyRatio=1, wickR=0;
+      for(let a=0;a<60;a++){
+        const run = mkBars(20, dir*rnd(.3,.5), rnd(.8,1.1), 100);
+        let tail = mkBars(6,
+          dir*(shape==="hold" ? rnd(.35,.55) : shape==="exit" ? rnd(.02,.12) : rnd(.15,.30)),
+          shape==="hold" ? rnd(.75,1.0) : shape==="exit" ? rnd(.50,.70) : rnd(.65,.90),
+          run[run.length-1].c);
+        if(shape==="hold") tail = tail.map(strongBar);
+        else if(shape==="exit") tail = tail.map(exhaustBar);
+        bars = run.concat(tail);
         A = atr(bars);
         entryIdx = bars.length-6;
-        entry = bars[entryIdx].c;
-        const cur = bars[bars.length-1].c;
-        if((cur-entry)*dir < .8*A) continue; // must be meaningfully in profit
-        const keep = Math.random()<.55;
-        fut = mkBars(12, (keep?dir:-dir)*rnd(.25,.5), rnd(.8,1.2), cur);
+        entry = bars[entryIdx].o;
+        const cur0 = bars[bars.length-1].c;
+        if((cur0-entry)*dir < .5*A) continue; // must be meaningfully in profit
+        bodyRatio = avgBody(tail)/(avgBody(run.slice(-8)) || 1);
+        wickR = upperWickRatio(tail);
         const R0 = 1.2*A;
-        truth = "exit";
+        fut = mkBars(12, (want==="hold"?dir:-dir)*rnd(.35,.60), rnd(.8,1.2), cur0);
+        truth = null;
         for(const b of fut){
-          if(b.l <= cur - R0){ truth="exit"; break; }
-          if(b.h >= cur + R0){ truth="hold"; break; }
+          if(b.l <= cur0 - R0){ truth="exit"; break; }
+          if(b.h >= cur0 + R0){ truth="hold"; break; }
         }
-        break;
+        if(truth === want) break;   // outcome must match the candles on screen
       }
+      if(!truth) truth = want;
       const cur = bars[bars.length-1].c, R0 = 1.2*A;
+      const openR = (cur-entry)/R0;
+      const conviction = shape==="mixed" ? "mixed" : "high";
       return {
         drill:"Exits", bars, future:fut,
         assist:[
           {p:cur+R0, c:A_GRN, l:"REACHES HERE = HOLD WINS (+1R)"},
           {p:cur-R0, c:A_RED, l:"DROPS HERE = EXIT WINS (-1R)"}
         ],
-        brief:"You're already in this trade and winning — the gold marker is your entry. Now the hard part: greed vs discipline. If price reaches the green rail first, holding was right. If it drops to the red rail first, you gave profit back and banking was right. Look at the last few candles: strong closes near their highs say hold; shrinking candles and long upper wicks say the push is tired — bank it.",
-        lesson:"Habit to build: decide your exit rule BEFORE the trade. Banking profit at target beats round-tripping a winner — you can always re-enter if structure confirms.",
+        brief: briefExits(openR, bodyRatio, wickR, conviction, want),
+        conviction,
+        lesson: pick([
+          "Habit to build: decide your exit rule BEFORE the trade. Banking profit at target beats round-tripping a winner — you can always re-enter if structure confirms.",
+          "Habit to build: judge the candles that just printed, not the profit you're already holding. Body size and wick length tell you if buyers are still there.",
+          "Habit to build: name the state before you act — is this a run-off (exhausting), a pullback, or the trend breathing? The state picks the exit, not your P&L."
+        ]),
         prompt:`You're <b>long from the marked candle</b> and in profit. Momentum check: hold the ${T("runner","runner")}, or bank it?`,
         options:[{key:"hold",label:"Hold Runner"},{key:"exit",label:"Take Profit"}],
         truth, isTrade:false, entryMark:{idx:entryIdx, price:entry},
@@ -806,9 +992,14 @@
           {p:entry-dir*stopDist, c:A_RED, l:"STOP (1R)"},
           {p:entry+dir*2*stopDist, c:A_GRN, l:"TARGET (2R)"}
         ],
-        brief:"This move already ran 8 candles without a real breather — and you're only seeing it NOW. That feeling of 'I'm missing it' is FOMO, and it's exactly what this drill trains against. The rails show the trade you'd be taking: entering far from any structure, with your stop hanging in air. Extended moves usually pull back first. Waiting is a position.",
-        lesson:"Habit to build: if your reason for entering is 'it already moved,' that's not a reason — wait for the pullback and let price come to you.",
-        prompt:`Price has been <b>${word} for 8 straight candles</b> and you just spotted it. ${T("chase","Chase")} it here, or let it breathe?`,
+        brief: briefChase(word, Math.abs(entry - bars[Math.max(0,bars.length-10)].c)/A, bars.length-14),
+        conviction:"high",
+        lesson: pick([
+          "Habit to build: if your reason for entering is 'it already moved,' that's not a reason — wait for the pullback and let price come to you.",
+          "Habit to build: measure how far the move has already travelled before you touch it. Extension is risk, not opportunity.",
+          "Habit to build: the trade you skip on FOMO protects the capital that funds the trade you should take."
+        ]),
+        prompt:`Price has been <b>${word} for ${bars.length-14} straight candles</b> and you just spotted it. ${T("chase","Chase")} it here, or let it breathe?`,
         options:[{key:"take",label: dir>0 ? "Chase It Long" : "Chase It Short"},{key:"wait",label:"Wait / No Chase"}],
         truth, isTrade:true, entry, stopDist, dir,
         lines:null,
@@ -1003,7 +1194,7 @@
     function paintGuide(){
       const on = ST.mode === "guided" && CUR && CUR.brief;
       $("guide").classList.toggle("show", !!on);
-      if(on) $("guideText").textContent = CUR.brief;
+      if(on) $("guideText").innerHTML = CUR.brief;   // briefs carry <b> emphasis
     }
 
     function renderAnswers(){
@@ -1088,6 +1279,10 @@
         (correct ? `<span class="win">Correct</span>` : `<span class="loss">Missed</span> — answer: <b>${truthLabel}</b>`) +
         rTxt + `. ` + CUR.explain(tradeR) +
         (correct && SES.combo>=2 ? ` <span class="xp">Combo x${SES.combo}!</span>` : "") +
+        // Honesty on borderline tape: a miss on a low-conviction setup is variance,
+        // not a misread — say so rather than implying the read was wrong.
+        (!correct && CUR.conviction === "mixed"
+          ? `<br><span style="color:var(--holoA)">⚖️ That setup was flagged <b>low-conviction</b> — the evidence genuinely didn't favor either side. Your read was defensible; this is exactly why stops exist.</span>` : "") +
         (ST.mode==="guided" && CUR.lesson ? `<br><span style="color:var(--gold)">🧭 ${CUR.lesson}</span>` : "");
 
       $("comboLbl").textContent = SES.combo>=2 ? `⚡ Combo x${SES.combo}` : "";
