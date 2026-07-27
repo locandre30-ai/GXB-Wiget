@@ -27,7 +27,12 @@ combo multipliers; completed sessions build a daily 🔥 streak and end with an 
 plus a **Copy Session Log** button formatted to paste straight into the Notion database.
 
 Two modes: **Guided** (per-drill "what you're looking at" briefing before you answer,
-habit-building lesson after, assist rails always on) and **Pro** (clean self-test).
+tappable follow-up questions, habit-building lesson after, assist rails always on) and
+**Pro** (clean self-test). Guided briefings carry 3–4 follow-up question chips —
+"How was the stop calculated?", "Exhaustion or just a breather?", "Why might it
+reverse?" — answered from the live chart's own measurements (real ATR, entry, stop,
+retrace %, wick ratios). Answers argue both sides and never reference the hidden
+outcome, so they teach reasoning rather than leak the answer.
 New users start Guided. Charts carry a permanent "Synthetic data · training only" badge.
 Lifetime per-skill accuracy and R persist and feed a rule-based **coach card** on the
 session summary (weakest skill, accuracy-vs-R divergence, insufficient data) — derived

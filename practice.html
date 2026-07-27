@@ -166,6 +166,19 @@
       color: var(--gold); font-weight:700; display:block; margin-bottom: 4px;
     }
 
+    /* Tappable follow-up questions under the briefing */
+    .asks{ display:flex; flex-wrap:wrap; gap:7px; margin-top: 10px; }
+    .ask{
+      padding: 7px 12px; border-radius: 999px;
+      border: 1px solid rgba(103,214,255,.3);
+      background: rgba(103,214,255,.07);
+      color: rgba(234,242,255,.9);
+      font-family: inherit; font-size: 12px; line-height:1.2;
+      cursor:pointer; text-align:left;
+      transition: border-color .2s, background .2s, transform .15s;
+    }
+    .ask:hover{ border-color: rgba(103,214,255,.6); background: rgba(103,214,255,.13); transform: translateY(-1px); }
+
     /* Synthetic data badge */
     .synthTag{
       position:absolute; top:8px; left:8px;
@@ -462,7 +475,10 @@
       </div>
 
       <p class="prompt" id="prompt"></p>
-      <div class="guide" id="guide"><span class="gk">🧭 What you're looking at</span><span id="guideText"></span></div>
+      <div class="guide" id="guide">
+        <span class="gk">🧭 What you're looking at</span><span id="guideText"></span>
+        <div class="asks" id="asks"></div>
+      </div>
       <div class="answers" id="answers"></div>
       <p class="verdict" id="verdict" aria-live="polite"></p>
       <p class="hint">💡 Tap any <span class="term" data-term="glossary">dotted word</span> for the breakdown.</p>
@@ -880,6 +896,134 @@
                 `That's real one-way travel. Confirm with structure: are highs and lows both stepping the same way?`]));
     }
 
+    /* ---------- follow-up question builders ----------
+      Every answer is computed from the live chart's measured values. They
+      deliberately argue BOTH sides where a setup has two sides, and never
+      reference the hidden outcome — so tapping them teaches the reasoning
+      instead of leaking the answer.
+    -------------------------------------------------- */
+    const ASK = (q,a) => ({q,a});
+
+    function asksContinuation(dirWord, dir, retrace, pbLen, bodyRatio, swing, pbExt, price){
+      const toSwing = Math.abs(swing - price), toPb = Math.abs(price - pbExt);
+      return [
+        ASK("Why might it continue?",
+          `Evidence <b>for</b> the ${dirWord} resuming on this chart:<br><br>` +
+          `• The pullback has only given back <b>${Math.round(retrace)}%</b> of the leg. Shallow pullbacks mean the side in control never really lost it.<br>` +
+          `• It lasted just <b>${pbLen} candles</b> — a brief pause rather than a sustained fight.<br>` +
+          `• Counter-candle bodies are <b>${bodyRatio<1?`${Math.round((1-bodyRatio)*100)}% smaller`:`${Math.round((bodyRatio-1)*100)}% larger`}</b> than the trend's own candles. ${bodyRatio<1?"Smaller means the pressure against the trend lacks conviction.":"Larger would argue against continuation — note that."}<br><br>` +
+          `Price is currently <b>${toSwing<toPb?"closer to":"further from"}</b> the continuation line than the reversal line.`),
+        ASK("Why might it reverse?",
+          `Evidence <b>against</b> the ${dirWord} on this chart:<br><br>` +
+          `• A retrace of <b>${Math.round(retrace)}%</b> ${retrace>45?"is deep — the trend has surrendered most of its last leg.":"is shallow, which actually argues against reversal here."}<br>` +
+          `• <b>${pbLen} candles</b> of counter-pressure ${pbLen>=5?"is a sustained push, not a breather.":"is brief — usually not enough to turn a trend."}<br>` +
+          `• ${bodyRatio>1.15?"Counter-candles are <b>larger</b> than the trend candles. When the pullback prints bigger bodies than the move it's correcting, control is changing hands.":"Counter-candles are not outsizing the trend, which weakens the reversal case."}<br><br>` +
+          `A reversal is confirmed only if price breaks the red line before the green one.`),
+        ASK("Where's the actual decision?",
+          `Two levels decide this, and nothing in between matters:<br><br>` +
+          `• <b>Green line</b> — the swing the ${dirWord} last made. Break it and the trend has objectively resumed.<br>` +
+          `• <b>Red line</b> — the deepest point of the pullback. Break it and the structure that defined the trend is gone.<br><br>` +
+          `Right now price sits <b>${(toSwing/(toSwing+toPb)*100).toFixed(0)}%</b> of the way from the green line toward the red one. Whichever breaks first is your answer — you're not predicting, you're waiting.`),
+        ASK("What would flip my read?",
+          `Concrete triggers, not feelings:<br><br>` +
+          `• If the next candles print <b>larger bodies against</b> the ${dirWord}, the pullback is becoming the new trend.<br>` +
+          `• If the retrace pushes past <b>50%</b> of the leg, treat continuation as damaged.<br>` +
+          `• If candles stall <b>without</b> reaching either line, that's consolidation — and consolidation is a no-trade zone until it breaks.<br><br>` +
+          `Rule of thumb: you flip your read when <b>structure</b> changes, never because the last candle scared you.`)
+      ];
+    }
+
+    function asksEntries(dirWord, pushR, A, entry, stopDist, isChop){
+      return [
+        ASK("Why this direction?",
+          isChop
+            ? `There isn't one — and that's the lesson. Net movement here is only <b>${Math.abs(pushR).toFixed(1)}× ATR</b>, which is noise, not a push. Neither buyers nor sellers own this tape.<br><br>With no dominant side, any entry is a coin flip with real risk attached. <b>No Trade</b> is the correct answer, and the Arena scores it as a win — because protecting capital <i>is</i> the skill being tested.`
+            : `Price pushed <b>${Math.abs(pushR).toFixed(1)}× ATR ${dirWord}</b> before pausing. That's displacement well beyond normal candle noise, which means one side is genuinely in control.<br><br>Trading <i>with</i> that side means the market has to keep doing what it's already doing for you to be paid. Trading against it means the market has to reverse — a bet that needs to be right about a change, not just a continuation. Same chart, very different odds.`),
+        ASK("How was the stop calculated?",
+          `The stop sits <b>1.2 × ATR</b> from entry.<br><br>` +
+          `• ATR on this chart ≈ <b>${A.toFixed(2)}</b> (average candle range over the last 14 bars)<br>` +
+          `• 1.2 × ${A.toFixed(2)} = <b>${stopDist.toFixed(2)}</b><br>` +
+          `• Entry <b>${entry.toFixed(2)}</b> → stop <b>${(entry-stopDist).toFixed(2)}</b> long, or <b>${(entry+stopDist).toFixed(2)}</b> short<br><br>` +
+          `Why scale to ATR instead of a fixed number? Because a stop needs to sit <i>outside</i> normal noise. A tighter stop gets hit by ordinary wiggles; a wider one risks more than the setup is worth. ATR adapts the distance to how much this market is actually moving right now.`),
+        ASK("What's the risk and reward?",
+          `• Risk (<b>1R</b>) = <b>${stopDist.toFixed(2)}</b> — the entry-to-stop distance. This is your unit of measurement.<br>` +
+          `• Reward (<b>2R</b>) = <b>${(2*stopDist).toFixed(2)}</b> — twice the risk.<br><br>` +
+          `With a 2:1 payoff you only need to be right about <b>34%</b> of the time to break even, and anything above ~40% is genuinely profitable. That's why R matters more than accuracy: a 50% win rate at 2R compounds, while a 90% win rate at poor R can still bleed. You've already lived both sides of that.`),
+        ASK("When is No Trade right?",
+          `<b>No Trade</b> is correct when the chart hasn't earned a direction:<br><br>` +
+          `• Net displacement under roughly <b>2× ATR</b> — motion without progress<br>` +
+          `• Highs and lows not stepping consistently one way<br>` +
+          `• No level near your stop, so being wrong costs full risk with nothing to lean on<br><br>` +
+          `This chart measures <b>${Math.abs(pushR).toFixed(1)}× ATR</b> of push. Standing aside isn't passivity — it's refusing to pay for a lottery ticket. Capital preserved funds the setups that are actually readable.`)
+      ];
+    }
+
+    function asksExits(openR, bodyRatio, wickR, R0, cur, entry){
+      return [
+        ASK("Exhaustion or just a breather?",
+          `The two look similar and resolve very differently. What this chart measures:<br><br>` +
+          `• Upper wick to body ratio: <b>${wickR.toFixed(2)}</b>. ${wickR>1.1?"Above 1.0 means wicks are longer than bodies — buyers keep pushing price up and keep getting rejected. That's <b>exhaustion</b> (a run-off).":"Below 1.0 means bodies dominate the wicks — pushes are holding their gains rather than getting rejected."}<br>` +
+          `• Recent bodies vs earlier ones: <b>${bodyRatio.toFixed(2)}×</b>. ${bodyRatio>.95?"Holding their size — demand is still present. That's the trend <b>breathing</b>, not dying.":"Shrinking — momentum is draining out of the move."}<br><br>` +
+          `<b>Run-off</b> = the move is spending its last energy (long wicks, small bodies, failed pushes). <b>Breathing</b> = a pause with bodies intact. <b>Pullback</b> = an actual counter-move that holds structure. Three different states, three different exits.`),
+        ASK("What am I risking by holding?",
+          `You're holding roughly <b>${openR.toFixed(1)}R</b> of open profit — real on the screen, not yet real in the account.<br><br>` +
+          `• Green rail (<b>${(cur+R0).toFixed(2)}</b>): reaching it first means holding paid another <b>+1R</b>.<br>` +
+          `• Red rail (<b>${(cur-R0).toFixed(2)}</b>): reaching it first means you gave back <b>1R</b> of profit you already had.<br><br>` +
+          `The asymmetry that traps people: banking is <i>certain</i> profit, holding is <i>probable</i> profit. Round-tripping a winner does double damage — you lose the money and the confidence. Your own logged lesson was exactly this: bank at target, re-enter if structure confirms.`),
+        ASK("What would make me hold?",
+          `Hold when the evidence says demand is still there:<br><br>` +
+          `• Candles closing in the <b>upper third</b> of their range — buyers finishing in control<br>` +
+          `• Bodies <b>maintaining or growing</b> (this chart: <b>${bodyRatio.toFixed(2)}×</b> recent vs earlier)<br>` +
+          `• Wicks <b>shorter</b> than bodies (this chart: <b>${wickR.toFixed(2)}</b>)<br>` +
+          `• Pullbacks that stay shallow and get bought quickly<br><br>` +
+          `Bank when you see the opposite: rejection at the highs, shrinking bodies, long upper wicks. Note what's <b>not</b> on that list — how much profit you're holding. Your P&L is not evidence about the market.`)
+      ];
+    }
+
+    function asksChase(word, extR, runLen, A, entry, stopDist){
+      return [
+        ASK("How extended is this really?",
+          `Price has travelled <b>${extR.toFixed(1)}× ATR</b> across <b>${runLen} candles</b> ${word} without a meaningful pause.<br><br>` +
+          `ATR ≈ <b>${A.toFixed(2)}</b> is what this market moves in a normal candle. So this run has covered the equivalent of <b>${Math.round(extR)}</b> ordinary candles' worth of range in one direction.<br><br>` +
+          `Moves like this don't continue forever — they mean-revert, consolidate, or reverse. Entering now means betting the exception happens right when you arrived.`),
+        ASK("Where would a good entry be?",
+          `Not here. A good entry needs a <b>level</b> behind it:<br><br>` +
+          `• Wait for a pullback toward the middle of this run, where earlier candles created structure<br>` +
+          `• Let price pause and form a base, then enter on the resumption with your stop <i>behind</i> that base<br>` +
+          `• That way your stop rests on something real, and your risk is a fraction of the move rather than all of it<br><br>` +
+          `The move you're watching will still be there, or another one will. There is no shortage of setups — only a shortage of capital when you chase.`),
+        ASK("What's wrong with my stop here?",
+          `Entry <b>${entry.toFixed(2)}</b>, stop <b>${stopDist.toFixed(2)}</b> away — mechanically fine, structurally hopeless.<br><br>` +
+          `The problem: that stop sits in <b>open air</b>. There's no swing, no prior level, nothing between your entry and your stop that would make price hesitate. Any ordinary breather in an extended move takes you out.<br><br>` +
+          `A stop should sit behind a reason — a level the market has to break to prove you wrong. A stop placed only by distance is a coin flip with a fee.`),
+        ASK("Why does chasing feel so right?",
+          `Because you're watching confirmation, and confirmation feels like safety.<br><br>` +
+          `<b>${runLen} candles</b> in one direction is the most obvious a move ever looks — and obvious is exactly when the good risk is gone. Everyone who entered early is already in profit; the only thing left to buy is their exit.<br><br>` +
+          `FOMO is the market's most expensive indicator. The discomfort of watching a move without you is the price of admission for taking good entries. Learning to sit with that feeling <i>is</i> the skill this drill trains.`)
+      ];
+    }
+
+    function asksTrend(netR, kind){
+      return [
+        ASK("How do I know it's trending?",
+          `Net displacement here is <b>${netR.toFixed(1)}× ATR</b> from where the chart opened.<br><br>` +
+          `Two things confirm a trend, and both must agree:<br>` +
+          `• <b>Displacement</b> — price ends up meaningfully far from where it started (roughly 2× ATR or more)<br>` +
+          `• <b>Structure</b> — highs AND lows step the same direction. Higher highs with higher lows = uptrend. Lower highs with lower lows = downtrend.<br><br>` +
+          `${Math.abs(netR)<2?"This chart measures under 2× ATR of net travel — motion without progress.":"This chart clears the displacement test; check the sequence of highs and lows to name the direction."}`),
+        ASK("What makes it consolidation?",
+          `Consolidation is <b>motion without progress</b>. Candles keep printing, but price keeps returning to where it began.<br><br>` +
+          `The tell is displacement: <b>${netR.toFixed(1)}× ATR</b> here. Under about 2× ATR, whatever you're seeing is chop — buyers and sellers in balance, neither able to hold ground.<br><br>` +
+          `Why it matters: trend strategies lose money in consolidation because there's no sustained direction to ride. Stops get hit from both sides. The correct action inside a range is to wait for the breakout, not to guess which way it resolves.`),
+        ASK("Which candles matter most?",
+          `Not the last one — the <b>turning points</b>.<br><br>` +
+          `• The <b>swing highs</b> and <b>swing lows</b> are the skeleton of the chart. Their sequence is the trend.<br>` +
+          `• Individual candle colors are noise; a single red candle in an uptrend means nothing.<br>` +
+          `• The gold START line tells you displacement at a glance — how far price actually got.<br><br>` +
+          `Practical habit: squint at the chart until individual candles blur. What's left — the shape, the staircase, the flat zone — is the structure you're being asked to name.`)
+      ];
+    }
+
     // ---------- drill scenario builders ----------
     // Each returns { drill, bars, future, prompt, options:[{key,label}],
     //                truth, lines:{entry,stop,target}|null, isTrade, explain(res) }
@@ -902,6 +1046,7 @@
         drill:"Trend Confirmation", bars, future:fut,
         assist:[{p:bars[0].o, c:A_GOLD, l:"START — far from here = trend"}],
         brief: briefTrend((bars[bars.length-1].c - bars[0].o)/atr(bars)),
+        asks: asksTrend((bars[bars.length-1].c - bars[0].o)/atr(bars), kind),
         conviction:"high",
         lesson: pick([
           "Habit to build: name the structure out loud (higher highs? lower lows?) before you ever think about entering.",
@@ -966,6 +1111,7 @@
           {p:pbExtKeep, c:A_RED, l: dir>0 ? "BREAK ↓ = REVERSES" : "BREAK ↑ = REVERSES"}
         ],
         brief: briefContinuation(dirWord, retrace, pbLen, bodyRatio, conviction, want),
+        asks: asksContinuation(dirWord, dir, retrace, pbLen, bodyRatio, swingKeep, pbExtKeep, bars[bars.length-1].c),
         conviction,
         lesson: pick([
           "Habit to build: mark the swing and the pullback extreme every time. The market answers at one of those two lines — you're never guessing, you're waiting.",
@@ -1011,6 +1157,7 @@
           {p:entry-2*stopDist, c:A_GRN, l:"TARGET if short (2R)"}
         ],
         brief: briefEntries(pushR>=0?"up":"down", pushR, bars.length - 24 > 0 ? bars.length-24 : 2, regime===0 ? "mixed" : "high"),
+        asks: asksEntries(pushR>=0?"up":"down", pushR, A, entry, stopDist, regime===0),
         conviction: regime===0 ? "mixed" : "high",
         lesson: pick([
           "Habit to build: risk is defined before entry, never after. If you can't say where you're wrong, you don't have a trade — you have a hope.",
@@ -1075,6 +1222,7 @@
           {p:cur-R0, c:A_RED, l:"DROPS HERE = EXIT WINS (-1R)"}
         ],
         brief: briefExits(openR, bodyRatio, wickR, conviction, want),
+        asks: asksExits(openR, bodyRatio, wickR, R0, cur, entry),
         conviction,
         lesson: pick([
           "Habit to build: decide your exit rule BEFORE the trade. Banking profit at target beats round-tripping a winner — you can always re-enter if structure confirms.",
@@ -1122,6 +1270,7 @@
           {p:entry+dir*2*stopDist, c:A_GRN, l:"TARGET (2R)"}
         ],
         brief: briefChase(word, Math.abs(entry - bars[Math.max(0,bars.length-10)].c)/A, bars.length-14),
+        asks: asksChase(word, Math.abs(entry - bars[Math.max(0,bars.length-10)].c)/A, bars.length-14, A, entry, stopDist),
         conviction:"high",
         lesson: pick([
           "Habit to build: if your reason for entering is 'it already moved,' that's not a reason — wait for the pullback and let price come to you.",
@@ -1325,7 +1474,19 @@
     function paintGuide(){
       const on = ST.mode === "guided" && CUR && CUR.brief;
       $("guide").classList.toggle("show", !!on);
-      if(on) $("guideText").innerHTML = CUR.brief;   // briefs carry <b> emphasis
+      if(!on) return;
+      $("guideText").innerHTML = CUR.brief;   // briefs carry <b> emphasis
+      // Follow-up questions: answers are computed from THIS chart's measurements,
+      // never from the hidden outcome — they teach the reasoning, not the answer.
+      const box = $("asks");
+      box.innerHTML = "";
+      for(const a of (CUR.asks || [])){
+        const b = document.createElement("button");
+        b.className = "ask";
+        b.textContent = a.q;
+        b.onclick = () => openSheet(a.q, a.a);
+        box.appendChild(b);
+      }
     }
 
     function renderAnswers(){
@@ -1607,13 +1768,17 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       box.appendChild(wrap);
     }
 
+    // Shared bottom-of-top sheet: used by the glossary and by follow-up answers
+    function openSheet(title, bodyHTML){
+      $("glTitle").textContent = title;
+      $("glBody").innerHTML = bodyHTML;
+      $("gloss").classList.add("open");
+    }
     // Glossary: tap any dotted term
     function openGloss(key){
       const g = GLOSSARY[key];
       if(!g) return;
-      $("glTitle").textContent = g[0];
-      $("glBody").textContent = g[1];
-      $("gloss").classList.add("open");
+      openSheet(g[0], g[1].replace(/&/g,"&amp;").replace(/</g,"&lt;"));
     }
     document.addEventListener("click", (e)=>{
       const t = e.target.closest(".term");
