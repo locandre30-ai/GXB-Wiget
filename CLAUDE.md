@@ -140,6 +140,23 @@ Aesthetic: **grounded, elevated, intentional.** Never corporate-sterile. Never c
 
 This widget embeds into Notion via iframe. Keep it self-contained and iframe-safe (no `document.cookie`, no cross-origin calls, no popups).
 
+### Notion is the source of truth (King's rule)
+
+**Every update, rebuild, and vision change gets written back to Notion — no exceptions.**
+Shipping code is only half the job; the docs must never lag the build.
+
+After each release, update:
+- **GXB Arena — Product Vision & Build-Out** (in ICC Command Center) — what shipped,
+  new requirements, design signals from real usage, bugs found and their impact on
+  past data, and open questions with a recommendation.
+- **ICC Practice Sessions** database — log King's session blocks as records
+  (Session, Practice Date, Duration, Focus multi-select, Self-Grade, Status,
+  Key Lesson; stats in the page body).
+
+Rules for these writes: cite real numbers, never invent results, flag when a fix
+invalidates earlier data, and record deltas between the spec and the build honestly.
+If a session's Key Lesson is missing, ask King for it rather than authoring one for him.
+
 ### Embed placement policy (King's rule)
 
 **One widget, one home: the original embed slot on the 💎 GXB hub page in Notion.**

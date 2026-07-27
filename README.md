@@ -33,6 +33,13 @@ Lifetime per-skill accuracy and R persist and feed a rule-based **coach card** o
 session summary (weakest skill, accuracy-vs-R divergence, insufficient data) — derived
 strictly from logged reps, never invented. Grade ladder: A / A- / B / C / D.
 
+The summary also carries a 👑 **Kingdom Note** — an earned affirmation in the Kingdom
+voice, paired with the evidence sentence that triggered it. Nine rules evaluated
+top-down (management leak, big R, focused mastery, sustained combo, patience, capital
+intact, streak, rough tape, fallback); an affirmation never appears without the
+session data that justifies it, and a leaky session gets an honest read rather than
+praise. Combo milestones surface a short Kingdom line mid-session.
+
 Extras: an 👁 Assist toggle overlays the live decision levels on the chart —
 entry/stop/target rails on trade drills, ±1R rails on exits, and the two
 structure-break lines on continuation drills — and hides them for clean self-testing.
