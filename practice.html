@@ -74,7 +74,7 @@
     .arena > *{ position:relative; }
 
     /* Header */
-    .hdr{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .hdr{ position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .kicker{
       display:inline-flex; align-items:center; gap:8px;
       padding: 6px 11px; border-radius: 999px;
@@ -149,14 +149,76 @@
     .modeRow{ display:flex; align-items:center; gap:8px; margin: 14px 0 0; }
     .modeLbl{ font-size: 10.5px; letter-spacing:.14em; text-transform:uppercase; color: rgba(234,242,255,.45); }
 
-    /* Profile row: one profile per person so reps never merge on a shared device */
-    .profRow{ display:flex; align-items:center; gap:8px; margin: 14px 0 0; flex-wrap:wrap; }
-    .profChips{ display:flex; gap:6px; flex-wrap:wrap; }
-    .profPanel{
-      margin: 10px 0 0; padding: 11px 12px;
-      border:1px solid var(--line); border-radius: 12px;
-      background: rgba(255,255,255,.03);
+    /* Profiles: only the active profile's icon shows, top right. Tap it to switch.
+       One profile per person so reps never merge on a shared device. */
+    .avatar{
+      width: 34px; height: 34px; flex:none;
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius: 999px; cursor:pointer;
+      border: 1px solid rgba(205,177,106,.45);
+      background: linear-gradient(180deg, rgba(205,177,106,.16), rgba(255,255,255,.02));
+      font-size: 17px; line-height:1;
+      transition: border-color .2s, transform .15s ease, box-shadow .2s;
     }
+    .avatar:hover{ transform: translateY(-1px); border-color: rgba(205,177,106,.8); }
+    .avatar[aria-expanded="true"]{
+      border-color: rgba(205,177,106,.9);
+      box-shadow: 0 0 14px rgba(205,177,106,.28);
+    }
+    .profMenu{
+      position:absolute; top: 100%; right: 0; z-index: 40;
+      width: min(290px, calc(100vw - 2 * var(--pad) - 12px));
+      margin-top: 8px; padding: 12px;
+      border:1px solid rgba(255,255,255,.14); border-radius: 14px;
+      /* Fully opaque: at 98% the chart behind it ghosted through the rows. */
+      background: linear-gradient(180deg, var(--bg1), var(--bg0));
+      backdrop-filter: blur(8px);
+      box-shadow: 0 18px 44px var(--shadow);
+    }
+    .pmHead{
+      margin: 0 0 9px; font-size: 10.5px; letter-spacing:.14em;
+      text-transform:uppercase; color: rgba(234,242,255,.45);
+    }
+    .pmList{ display:flex; flex-direction:column; gap:5px; }
+    .pmRow{
+      display:flex; align-items:center; gap:9px; width:100%;
+      padding: 7px 9px; border-radius: 10px; cursor:pointer; text-align:left;
+      border:1px solid transparent; background: rgba(255,255,255,.03);
+      color: var(--muted); font-family: inherit; font-size: 13px;
+      transition: border-color .2s, color .2s, background .2s;
+    }
+    .pmRow:hover{ border-color: rgba(103,214,255,.35); color: var(--ink); }
+    .pmRow.on{
+      border-color: rgba(103,214,255,.5);
+      background: linear-gradient(180deg, rgba(103,214,255,.13), rgba(103,214,255,.03));
+      color: var(--ink);
+    }
+    .pmRow .ic{ font-size: 17px; line-height:1; }
+    .pmRow .tick{ margin-left:auto; color: var(--holoA); font-size: 12px; }
+    .pmAdd{
+      width:100%; margin-top: 9px; padding: 8px 10px;
+      border-radius: 10px; cursor:pointer;
+      border: 1px dashed rgba(255,255,255,.18);
+      background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 12px;
+      transition: border-color .2s, color .2s;
+    }
+    .pmAdd:hover{ border-color: rgba(103,214,255,.45); color: var(--ink); }
+    .pmEdit{ margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
+    .pmLbl{
+      margin: 0 0 6px; font-size: 10px; letter-spacing:.14em;
+      text-transform:uppercase; color: rgba(234,242,255,.4);
+    }
+    .pmIcons{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom: 11px; }
+    .picon{
+      width: 29px; height: 29px; flex:none;
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius: 8px; cursor:pointer; font-size: 15px; line-height:1;
+      border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.03);
+      transition: border-color .2s, transform .15s ease;
+    }
+    .picon:hover{ transform: translateY(-1px); }
+    .picon.on{ border-color: rgba(103,214,255,.65); background: rgba(103,214,255,.12); }
     .profEditRow{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .profInput{
       flex: 1 1 150px; min-width:0;
@@ -469,32 +531,35 @@
           <div class="badges">
             <div class="badge gold" id="streakBadge" title="Daily practice streak">🔥 0</div>
             <div class="badge" id="rankBadge">Observer · L1</div>
+            <button class="avatar" id="profBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="profMenu">👑</button>
           </div>
           <div class="xpwrap">
             <div class="xpbar"><div class="xpfill" id="xpFill"></div></div>
             <div class="xplabel" id="xpLabel">0 XP</div>
           </div>
         </div>
-      </div>
 
-      <div class="profRow" role="group" aria-label="Profile selector">
-        <span class="modeLbl">Profile</span>
-        <div class="profChips" id="profChips"></div>
-        <button class="chip mini" id="profAdd" title="Create a new profile — keeps each person's reps separate">＋ New</button>
-        <button class="chip mini" id="profEdit" title="Rename or delete the current profile" aria-expanded="false" aria-controls="profPanel">⚙ Edit</button>
-      </div>
-      <div class="profPanel" id="profPanel" hidden>
-        <p class="profWarn" id="profWarn" hidden>⚠️ This profile's history was recorded before profiles existed, so it may include other people's reps. Treat its per-skill stats as approximate.</p>
-        <div class="profEditRow">
-          <input class="profInput" id="profName" type="text" maxlength="24" aria-label="Profile name" placeholder="Profile name">
-          <button class="chip mini" id="profSave">Save Name</button>
-          <button class="chip mini danger" id="profDel">Delete</button>
+        <div class="profMenu" id="profMenu" hidden role="menu" aria-label="Profiles">
+          <p class="pmHead">Who's training?</p>
+          <div class="pmList" id="pmList"></div>
+          <button class="pmAdd" id="profAdd">＋ New profile</button>
+          <div class="pmEdit">
+            <p class="profWarn" id="profWarn" hidden>⚠️ This profile's history was recorded before profiles existed, so it may include other people's reps. Treat its per-skill stats as approximate.</p>
+            <p class="pmLbl">Icon</p>
+            <div class="pmIcons" id="pmIcons" role="group" aria-label="Profile icon"></div>
+            <p class="pmLbl">Name</p>
+            <div class="profEditRow">
+              <input class="profInput" id="profName" type="text" maxlength="24" aria-label="Profile name" placeholder="Profile name">
+              <button class="chip mini" id="profSave">Save</button>
+            </div>
+            <button class="chip mini danger" id="profDel">Delete profile</button>
+            <p class="profConfirm" id="profConfirm" hidden>
+              Delete this profile and all of its reps? This cannot be undone.
+              <button class="chip mini danger" id="profDelYes">Yes, delete</button>
+              <button class="chip mini" id="profDelNo">Cancel</button>
+            </p>
+          </div>
         </div>
-        <p class="profConfirm" id="profConfirm" hidden>
-          Delete this profile and all of its reps? This cannot be undone.
-          <button class="chip mini danger" id="profDelYes">Yes, delete</button>
-          <button class="chip mini" id="profDelNo">Cancel</button>
-        </p>
       </div>
 
       <div class="modeRow" role="group" aria-label="Mode selector">
@@ -770,6 +835,9 @@
 
     const newProfileId = () => "p" + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
 
+    // Each profile is represented by one icon — the only profile UI on screen.
+    const PROFILE_ICONS = ["👑","🦁","⚡","🐺","🌙","🔥","💎","🐉","🦅","🌊","🎯","🧿"];
+
     // First run migrates the old single-user blob into one profile rather than
     // discarding it. That history is device-scoped, not person-scoped, so it is
     // flagged and the UI says so instead of presenting it as one person's record.
@@ -782,6 +850,7 @@
         active: id,
         profiles: { [id]: {
           name: legacy ? "King" : "Player 1",
+          icon: PROFILE_ICONS[0],
           legacyMixed: !!legacy,
           state: normalize(legacy)
         }}
@@ -1907,30 +1976,65 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     // Switching swaps the whole state blob: XP, streak, mode, candle theme and
     // per-skill stats all belong to one person and never bleed across profiles.
     function buildProfiles(){
-      const box = $("profChips");
-      box.innerHTML = "";
+      const active = activeProfile();
+      // Top right shows the active profile's icon and nothing else.
+      $("profBtn").textContent = active.icon || PROFILE_ICONS[0];
+      $("profBtn").setAttribute("aria-label", `Profile: ${active.name}. Switch profile`);
+      $("profBtn").title = active.name;
+
+      const list = $("pmList");
+      list.innerHTML = "";
       for(const [id, p] of Object.entries(BOOK.profiles)){
-        const b = document.createElement("button");
         const on = id === BOOK.active;
-        b.className = "chip mini" + (on ? " on" : "");
-        b.textContent = p.name;
-        b.setAttribute("aria-pressed", on ? "true" : "false");
-        b.onclick = () => switchProfile(id);
-        box.appendChild(b);
+        const b = document.createElement("button");
+        b.className = "pmRow" + (on ? " on" : "");
+        b.setAttribute("role", "menuitemradio");
+        b.setAttribute("aria-checked", on ? "true" : "false");
+        b.innerHTML = `<span class="ic">${p.icon || PROFILE_ICONS[0]}</span><span class="nm"></span>${on ? '<span class="tick">✓</span>' : ""}`;
+        b.querySelector(".nm").textContent = p.name;   // names are user text
+        b.onclick = () => { switchProfile(id); openProfMenu(false); };
+        list.appendChild(b);
       }
-      const p = activeProfile();
-      $("profWarn").hidden = !p.legacyMixed;
-      $("profName").value = p.name;
+
+      const icons = $("pmIcons");
+      icons.innerHTML = "";
+      for(const em of PROFILE_ICONS){
+        const b = document.createElement("button");
+        b.className = "picon" + (em === active.icon ? " on" : "");
+        b.textContent = em;
+        b.setAttribute("aria-label", `Use icon ${em}`);
+        b.setAttribute("aria-pressed", em === active.icon ? "true" : "false");
+        b.onclick = () => {
+          activeProfile().icon = em;
+          writeRaw(PROF_KEY, BOOK);
+          buildProfiles();
+        };
+        icons.appendChild(b);
+      }
+
+      $("profWarn").hidden = !active.legacyMixed;
+      $("profName").value = active.name;
       // The last profile can't be deleted — there would be nothing to load.
       $("profDel").disabled = Object.keys(BOOK.profiles).length < 2;
     }
 
-    function openProfPanel(on){
-      $("profPanel").hidden = !on;
-      $("profEdit").classList.toggle("on", on);
-      $("profEdit").setAttribute("aria-expanded", on ? "true" : "false");
+    function openProfMenu(on){
+      $("profMenu").hidden = !on;
+      $("profBtn").setAttribute("aria-expanded", on ? "true" : "false");
       if(!on) $("profConfirm").hidden = true;
     }
+    $("profBtn").onclick = (e) => { e.stopPropagation(); openProfMenu($("profMenu").hidden); };
+    // Clicks inside the menu never reach the outside-click handler. Containment
+    // can't be tested there: picking an icon re-renders the menu, so the clicked
+    // node is already detached by the time the event bubbles to document.
+    $("profMenu").addEventListener("click", (e) => e.stopPropagation());
+    // Tapping outside or pressing Escape closes it — the menu is transient.
+    document.addEventListener("click", () => {
+      if(!$("profMenu").hidden) openProfMenu(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if(e.key === "Escape" && !$("profMenu").hidden){ openProfMenu(false); $("profBtn").focus(); }
+    });
 
     function applyProfile(){
       ST = activeProfile().state;
@@ -1957,19 +2061,23 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       return `Player ${n}`;
     }
 
+    // Give each new profile an icon nobody is using yet, so they stay tellable apart.
+    function unusedIcon(){
+      const taken = new Set(Object.values(BOOK.profiles).map(p=>p.icon));
+      return PROFILE_ICONS.find(e => !taken.has(e)) || PROFILE_ICONS[0];
+    }
+
     $("profAdd").onclick = () => {
       saveState(ST);
       const id = newProfileId();
-      BOOK.profiles[id] = { name: uniqueProfileName(), legacyMixed:false, state: normalize(null) };
+      BOOK.profiles[id] = { name: uniqueProfileName(), icon: unusedIcon(), legacyMixed:false, state: normalize(null) };
       BOOK.active = id;
       writeRaw(PROF_KEY, BOOK);
       applyProfile();
-      openProfPanel(true);
+      openProfMenu(true);
       $("profName").focus();
       $("profName").select();
     };
-
-    $("profEdit").onclick = () => openProfPanel($("profPanel").hidden);
 
     $("profSave").onclick = () => {
       const v = $("profName").value.trim().slice(0,24);
@@ -1987,7 +2095,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       delete BOOK.profiles[BOOK.active];
       BOOK.active = Object.keys(BOOK.profiles)[0];
       writeRaw(PROF_KEY, BOOK);
-      openProfPanel(false);
+      openProfMenu(false);
       applyProfile();
     };
 
