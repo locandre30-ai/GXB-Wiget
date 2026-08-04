@@ -149,6 +149,30 @@
     .modeRow{ display:flex; align-items:center; gap:8px; margin: 14px 0 0; }
     .modeLbl{ font-size: 10.5px; letter-spacing:.14em; text-transform:uppercase; color: rgba(234,242,255,.45); }
 
+    /* Profile row: one profile per person so reps never merge on a shared device */
+    .profRow{ display:flex; align-items:center; gap:8px; margin: 14px 0 0; flex-wrap:wrap; }
+    .profChips{ display:flex; gap:6px; flex-wrap:wrap; }
+    .profPanel{
+      margin: 10px 0 0; padding: 11px 12px;
+      border:1px solid var(--line); border-radius: 12px;
+      background: rgba(255,255,255,.03);
+    }
+    .profEditRow{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .profInput{
+      flex: 1 1 150px; min-width:0;
+      padding: 7px 11px; border-radius: 999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      color: var(--ink); font-family: inherit; font-size: 12px;
+    }
+    .profInput:focus{ outline:none; border-color: rgba(103,214,255,.55); }
+    .chip.danger{ border-color: rgba(255,107,139,.38); color: var(--dn); }
+    .chip.danger:hover{ border-color: rgba(255,107,139,.7); color: var(--dn); }
+    .profWarn, .profConfirm{ margin: 0 0 9px; font-size: 11.5px; line-height:1.55; color: var(--muted); }
+    .profWarn{ color: var(--gold); }
+    .profConfirm{ margin: 9px 0 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    [hidden]{ display:none !important; }
+
     /* Guided briefing panel */
     .guide{
       display:none;
@@ -453,6 +477,26 @@
         </div>
       </div>
 
+      <div class="profRow" role="group" aria-label="Profile selector">
+        <span class="modeLbl">Profile</span>
+        <div class="profChips" id="profChips"></div>
+        <button class="chip mini" id="profAdd" title="Create a new profile — keeps each person's reps separate">＋ New</button>
+        <button class="chip mini" id="profEdit" title="Rename or delete the current profile" aria-expanded="false" aria-controls="profPanel">⚙ Edit</button>
+      </div>
+      <div class="profPanel" id="profPanel" hidden>
+        <p class="profWarn" id="profWarn" hidden>⚠️ This profile's history was recorded before profiles existed, so it may include other people's reps. Treat its per-skill stats as approximate.</p>
+        <div class="profEditRow">
+          <input class="profInput" id="profName" type="text" maxlength="24" aria-label="Profile name" placeholder="Profile name">
+          <button class="chip mini" id="profSave">Save Name</button>
+          <button class="chip mini danger" id="profDel">Delete</button>
+        </div>
+        <p class="profConfirm" id="profConfirm" hidden>
+          Delete this profile and all of its reps? This cannot be undone.
+          <button class="chip mini danger" id="profDelYes">Yes, delete</button>
+          <button class="chip mini" id="profDelNo">Cancel</button>
+        </p>
+      </div>
+
       <div class="modeRow" role="group" aria-label="Mode selector">
         <span class="modeLbl">Mode</span>
         <button class="chip mini" id="modeGuided">🧭 Guided</button>
@@ -691,31 +735,70 @@
     const T = (key, label) => `<span class="term" data-term="${key}">${label}</span>`;
 
     // ---------- persistence (safe in sandboxed iframes) ----------
-    const STORE_KEY = "gxb_arena_v1";
-    let mem = null;
-    function loadState(){
-      try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || null; }
-      catch(e){ return mem; }
+    // Profiles: this widget lives on one device but gets handed around. Without
+    // an identity layer every person's reps merged into a single blob, silently
+    // corrupting per-skill accuracy, XP and streaks (it happened twice — see the
+    // vision doc). Each profile now owns its own state; switching swaps the blob
+    // wholesale. Nothing leaves the device and nothing is shared between profiles.
+    const STORE_KEY = "gxb_arena_v1";            // legacy pre-profiles blob
+    const PROF_KEY  = "gxb_arena_profiles_v1";   // { active, profiles:{ id:{name,legacyMixed,state} } }
+
+    function readRaw(key){
+      try{ return JSON.parse(localStorage.getItem(key)) || null; }catch(e){ return null; }
     }
-    function saveState(s){
-      mem = s;
-      try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){}
+    function writeRaw(key, val){
+      try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
     }
-    // Normalize on load: a partial or older stored blob must never produce
+
+    // Normalize: a partial or older stored blob must never produce
     // NaN/undefined in the UI, so every field gets a validated default.
     const DEFAULTS = { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
-    let ST = Object.assign({}, DEFAULTS, loadState() || {});
-    for(const k of ["xp","dayStreak","sessions","bestCombo","rounds","correct"]){
-      if(typeof ST[k] !== "number" || !isFinite(ST[k])) ST[k] = DEFAULTS[k];
+    function normalize(raw){
+      const s = Object.assign({}, DEFAULTS, raw || {});
+      for(const k of ["xp","dayStreak","sessions","bestCombo","rounds","correct"]){
+        if(typeof s[k] !== "number" || !isFinite(s[k])) s[k] = DEFAULTS[k];
+      }
+      if(typeof s.lastDay !== "string") s.lastDay = "";
+      if(!s.candleTheme || !THEMES[s.candleTheme]) s.candleTheme = "classic";
+      if(s.assist === undefined) s.assist = true;
+      // Guided for brand-new users, Pro for anyone with sessions already logged
+      if(!s.mode) s.mode = s.sessions > 0 ? "pro" : "guided";
+      // Lifetime per-skill stats: { drill: {rounds, correct, rSum, rCount} }
+      if(!s.skills || typeof s.skills !== "object") s.skills = {};
+      return s;
     }
-    if(typeof ST.lastDay !== "string") ST.lastDay = "";
-    if(!ST.candleTheme || !THEMES[ST.candleTheme]) ST.candleTheme = "classic";
+
+    const newProfileId = () => "p" + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
+
+    // First run migrates the old single-user blob into one profile rather than
+    // discarding it. That history is device-scoped, not person-scoped, so it is
+    // flagged and the UI says so instead of presenting it as one person's record.
+    function loadBook(){
+      const book = readRaw(PROF_KEY);
+      if(book && book.profiles && book.active && book.profiles[book.active]) return book;
+      const legacy = readRaw(STORE_KEY);
+      const id = newProfileId();
+      const fresh = {
+        active: id,
+        profiles: { [id]: {
+          name: legacy ? "King" : "Player 1",
+          legacyMixed: !!legacy,
+          state: normalize(legacy)
+        }}
+      };
+      writeRaw(PROF_KEY, fresh);
+      return fresh;
+    }
+
+    // If localStorage is blocked, BOOK still lives in memory for the session.
+    let BOOK = loadBook();
+    const activeProfile = () => BOOK.profiles[BOOK.active];
+    let ST = activeProfile().state;
+    function saveState(s){
+      if(s) activeProfile().state = s;
+      writeRaw(PROF_KEY, BOOK);
+    }
     let CANDLES = THEMES[ST.candleTheme];
-    if(ST.assist === undefined) ST.assist = true;
-    // Guided for brand-new users, Pro for anyone with sessions already logged
-    if(!ST.mode) ST.mode = ST.sessions > 0 ? "pro" : "guided";
-    // Lifetime per-skill stats: { drill: {rounds, correct, rSum, rCount} }
-    if(!ST.skills) ST.skills = {};
 
     // Assist guide colors (brand-fixed, independent of candle theme)
     const A_GOLD = "rgba(205,177,106,.6)", A_RED = "rgba(255,107,139,.55)", A_GRN = "rgba(63,224,168,.55)";
@@ -1687,6 +1770,7 @@
       const focusUsed = FOCUS==="All Drills" ? Object.keys(SES.focusCounts).join(", ") : FOCUS;
       $("logBox").value =
 `Session: Arena — ${today}${FOCUS!=="All Drills" ? " — "+FOCUS : ""}
+Profile: ${activeProfile().name}
 Practice Date: ${today}
 Duration (min): ${mins}
 Focus: ${focusUsed || FOCUS}
@@ -1767,6 +1851,12 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       }
       box.appendChild(wrap);
     }
+    // Swatch selection follows the active profile, so a switch repaints it.
+    function paintSwatches(){
+      const wrap = document.querySelector(".swatches");
+      if(!wrap) return;
+      [...wrap.querySelectorAll(".sw")].forEach(b => b.classList.toggle("on", b.title === ST.candleTheme));
+    }
 
     // Shared bottom-of-top sheet: used by the glossary and by follow-up answers
     function openSheet(title, bodyHTML){
@@ -1813,8 +1903,97 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     $("modeGuided").onclick = () => { ST.mode = "guided"; saveState(ST); paintMode(); };
     $("modePro").onclick = () => { ST.mode = "pro"; saveState(ST); paintMode(); };
 
+    // ---------- profiles ----------
+    // Switching swaps the whole state blob: XP, streak, mode, candle theme and
+    // per-skill stats all belong to one person and never bleed across profiles.
+    function buildProfiles(){
+      const box = $("profChips");
+      box.innerHTML = "";
+      for(const [id, p] of Object.entries(BOOK.profiles)){
+        const b = document.createElement("button");
+        const on = id === BOOK.active;
+        b.className = "chip mini" + (on ? " on" : "");
+        b.textContent = p.name;
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.onclick = () => switchProfile(id);
+        box.appendChild(b);
+      }
+      const p = activeProfile();
+      $("profWarn").hidden = !p.legacyMixed;
+      $("profName").value = p.name;
+      // The last profile can't be deleted — there would be nothing to load.
+      $("profDel").disabled = Object.keys(BOOK.profiles).length < 2;
+    }
+
+    function openProfPanel(on){
+      $("profPanel").hidden = !on;
+      $("profEdit").classList.toggle("on", on);
+      $("profEdit").setAttribute("aria-expanded", on ? "true" : "false");
+      if(!on) $("profConfirm").hidden = true;
+    }
+
+    function applyProfile(){
+      ST = activeProfile().state;
+      CANDLES = THEMES[ST.candleTheme];
+      buildProfiles();
+      paintMeters();
+      paintSwatches();
+      paintMode();    // repaints assist + briefing, then redraws
+      newSession();   // a mid-session switch must never bank reps to the new person
+    }
+
+    function switchProfile(id){
+      if(id === BOOK.active || !BOOK.profiles[id]) return;
+      saveState(ST);            // bank the outgoing profile first
+      BOOK.active = id;
+      writeRaw(PROF_KEY, BOOK);
+      applyProfile();
+    }
+
+    function uniqueProfileName(){
+      const taken = new Set(Object.values(BOOK.profiles).map(p=>p.name));
+      let n = Object.keys(BOOK.profiles).length + 1;
+      while(taken.has(`Player ${n}`)) n++;
+      return `Player ${n}`;
+    }
+
+    $("profAdd").onclick = () => {
+      saveState(ST);
+      const id = newProfileId();
+      BOOK.profiles[id] = { name: uniqueProfileName(), legacyMixed:false, state: normalize(null) };
+      BOOK.active = id;
+      writeRaw(PROF_KEY, BOOK);
+      applyProfile();
+      openProfPanel(true);
+      $("profName").focus();
+      $("profName").select();
+    };
+
+    $("profEdit").onclick = () => openProfPanel($("profPanel").hidden);
+
+    $("profSave").onclick = () => {
+      const v = $("profName").value.trim().slice(0,24);
+      if(!v){ $("profName").value = activeProfile().name; return; }
+      activeProfile().name = v;
+      writeRaw(PROF_KEY, BOOK);
+      buildProfiles();
+    };
+    $("profName").addEventListener("keydown", e => { if(e.key === "Enter") $("profSave").onclick(); });
+
+    $("profDel").onclick = () => { if(!$("profDel").disabled) $("profConfirm").hidden = false; };
+    $("profDelNo").onclick = () => { $("profConfirm").hidden = true; };
+    $("profDelYes").onclick = () => {
+      if(Object.keys(BOOK.profiles).length < 2) return;
+      delete BOOK.profiles[BOOK.active];
+      BOOK.active = Object.keys(BOOK.profiles)[0];
+      writeRaw(PROF_KEY, BOOK);
+      openProfPanel(false);
+      applyProfile();
+    };
+
     // ---------- init ----------
     buildChips();
+    buildProfiles();
     paintMeters();
     paintMode();
     new ResizeObserver(sizeCanvases).observe(chart);
