@@ -230,8 +230,7 @@
     .profInput:focus{ outline:none; border-color: rgba(103,214,255,.55); }
     .chip.danger{ border-color: rgba(255,107,139,.38); color: var(--dn); }
     .chip.danger:hover{ border-color: rgba(255,107,139,.7); color: var(--dn); }
-    .profWarn, .profConfirm{ margin: 0 0 9px; font-size: 11.5px; line-height:1.55; color: var(--muted); }
-    .profWarn{ color: var(--gold); }
+    .profConfirm{ margin: 0 0 9px; font-size: 11.5px; line-height:1.55; color: var(--muted); }
     .profConfirm{ margin: 9px 0 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     [hidden]{ display:none !important; }
 
@@ -544,7 +543,6 @@
           <div class="pmList" id="pmList"></div>
           <button class="pmAdd" id="profAdd">＋ New profile</button>
           <div class="pmEdit">
-            <p class="profWarn" id="profWarn" hidden>⚠️ This profile's history was recorded before profiles existed, so it may include other people's reps. Treat its per-skill stats as approximate.</p>
             <p class="pmLbl">Icon</p>
             <div class="pmIcons" id="pmIcons" role="group" aria-label="Profile icon"></div>
             <p class="pmLbl">Name</p>
@@ -806,7 +804,7 @@
     // vision doc). Each profile now owns its own state; switching swaps the blob
     // wholesale. Nothing leaves the device and nothing is shared between profiles.
     const STORE_KEY = "gxb_arena_v1";            // legacy pre-profiles blob
-    const PROF_KEY  = "gxb_arena_profiles_v1";   // { active, profiles:{ id:{name,legacyMixed,state} } }
+    const PROF_KEY  = "gxb_arena_profiles_v1";   // { active, profiles:{ id:{name,icon,state} } }
 
     function readRaw(key){
       try{ return JSON.parse(localStorage.getItem(key)) || null; }catch(e){ return null; }
@@ -851,7 +849,6 @@
         profiles: { [id]: {
           name: legacy ? "King" : "Player 1",
           icon: PROFILE_ICONS[0],
-          legacyMixed: !!legacy,
           state: normalize(legacy)
         }}
       };
@@ -1602,6 +1599,10 @@
       };
       $("summary").classList.remove("open");
       $("logBox").style.display = "none";
+      // These only repaint on a verdict, so without an explicit reset a new
+      // session opens still showing the previous session's R and combo.
+      $("rLbl").textContent = "Session R: 0.0";
+      $("comboLbl").textContent = "";
       nextRound();
     }
 
@@ -1676,6 +1677,16 @@
           };
           tradeR = simTrade(dir, CUR.entry, CUR.stopDist, CUR.future);
         }
+      }
+      // Exits manages an position that is already open, so it never routes
+      // through the isTrade branch above — but it still has an R consequence,
+      // and the chart already draws the two rails that define it. Resolve
+      // against those rails so the number the drill promises is the number it
+      // pays: holding the runner realises +1R if price reaches the target rail
+      // and -1R if it gives back to the stop rail; banking exits flat from the
+      // decision candle, so it realises 0R (a loss avoided, not a gain made).
+      else if(CUR.drill === "Exits"){
+        tradeR = key === "hold" ? (CUR.truth === "hold" ? 1 : -1) : 0;
       }
 
       // reveal the future bar by bar
@@ -2012,7 +2023,6 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         icons.appendChild(b);
       }
 
-      $("profWarn").hidden = !active.legacyMixed;
       $("profName").value = active.name;
       // The last profile can't be deleted — there would be nothing to load.
       $("profDel").disabled = Object.keys(BOOK.profiles).length < 2;
@@ -2070,7 +2080,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     $("profAdd").onclick = () => {
       saveState(ST);
       const id = newProfileId();
-      BOOK.profiles[id] = { name: uniqueProfileName(), icon: unusedIcon(), legacyMixed:false, state: normalize(null) };
+      BOOK.profiles[id] = { name: uniqueProfileName(), icon: unusedIcon(), state: normalize(null) };
       BOOK.active = id;
       writeRaw(PROF_KEY, BOOK);
       applyProfile();
