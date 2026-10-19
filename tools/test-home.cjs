@@ -5,7 +5,7 @@ class Element{
   constructor(tag){this.tag=tag;this.children=[];this.hidden=false;this.value='';}
   append(...nodes){this.children.push(...nodes);} replaceChildren(...nodes){this.children=nodes;}
   appendChild(node){this.children.push(node);return node;}
-  setAttribute(){} focus(){} setCustomValidity(v){this.invalid=v;} reportValidity(){}
+  setAttribute(k,v){this[k]=v;} focus(){} setCustomValidity(v){this.invalid=v;} reportValidity(){}
 }
 const body=new Element('body');body.prepend=(...nodes)=>body.children.unshift(...nodes);
 const arena=new Element('arena');let sessions=0,saves=0;
@@ -19,10 +19,13 @@ const end=html.lastIndexOf('  </script>');
 vm.runInContext(html.slice(start,end)+'\ninitDashboard();',context);
 const home=body.children[0],back=body.children[1];
 const all=e=>[e,...e.children.flatMap(all)];
-const find=text=>all(home).find(e=>e.textContent===text);
+const find=text=>all(home).find(e=>e.textContent===text||e['aria-label']===text);
 assert.equal(arena.hidden,true);assert.ok(find('Create your profile'));
 find('👑 King').onclick();assert.ok(find('Welcome back, King.'));assert.ok(find('70%'));assert.ok(find('Entries · 70%'));
-find('Choose Gold or Bitcoin →').onclick();assert.ok(find('Gold'));assert.ok(find('Bitcoin'));
+assert.ok(find('Explore markets'));assert.ok(find('Gold'));assert.ok(find('Bitcoin'));
+assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Gold bullion bars')));
+assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Bitcoin coin')));
+assert.equal(find('Edit name / icon'),undefined);
 find('Explore Gold →').onclick();assert.equal(context.ST.journey.market,'gold');
 find('Begin first mission →').onclick();assert.ok(find('What is day trading?'));
 find('Show me the chart →').onclick();find('Falling').onclick();assert.ok(find('Complete mission →')===undefined);
