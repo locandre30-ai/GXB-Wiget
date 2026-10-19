@@ -2150,6 +2150,15 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         .homePrimary{background:var(--gold);color:var(--bg0);border:0;border-radius:999px;padding:13px 22px;cursor:pointer;font:inherit;font-weight:700}
         .homeProfiles{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0}.homeStatus{color:var(--gold)!important}
         #homeBack{position:relative;margin:16px var(--pad) 0}
+        .journeyHero{padding:clamp(22px,5vw,42px);margin:24px 0;border:1px solid var(--gold);border-radius:24px;background:radial-gradient(ellipse at top right,var(--bg1),var(--bg0))}
+        .journeyHero h2{font-size:clamp(25px,4vw,38px);margin:12px 0}.journeyHero p{max-width:580px}
+        .marketChoices{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}.marketChoices .homeCard{display:flex;flex-direction:column;align-items:flex-start}.marketChoices p{flex:1}
+        .marketSymbol{font-size:42px;color:var(--gold);margin:6px 0 18px}.pathRow{display:flex;align-items:center;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+        .pathDot{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--gold);display:grid;place-items:center;color:var(--gold)}
+        .missionChart{width:100%;display:block;border:1px solid var(--line);border-radius:16px;margin:18px 0;background:var(--bg0)}
+        .missionFeedback{min-height:60px;line-height:1.7;padding:16px 0;color:var(--diamond)}
+        .home details{margin-top:28px}.home summary{cursor:pointer;padding:16px 0;font-size:18px;color:var(--muted)}
+        @media(max-width:520px){.marketChoices{grid-template-columns:1fr}}
         @media(max-width:680px){.homeGrid{grid-template-columns:1fr 1fr}.homeColumns{grid-template-columns:1fr}.homeCard{padding:16px}}
       `;
       document.head.appendChild(style);
@@ -2161,6 +2170,50 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       function action(text,fn,primary=false){const b=el('button',text,primary?'homePrimary':'chip');b.type='button';b.onclick=fn;return b;}
       function showHome(){activeProfile().onboarded=true;saveState(ST);arena.hidden=true;back.hidden=true;home.hidden=false;openProfMenu(false);render();window.scrollTo(0,0);}
       function train(){home.hidden=true;arena.hidden=false;back.hidden=false;newSession();sizeCanvases();document.querySelector('h1').focus?.();window.scrollTo(0,0);}
+      const MARKETS={
+        gold:{name:'Gold',symbol:'Au',instrument:'Gold · introductory price study',description:'Explore a market shaped by global demand, economic news and changing expectations.',intro:'Gold is a physical asset. Traders can follow its price through different instruments, including spot markets and futures. Here, you will learn to read an illustrative gold chart before considering any trade.',base:2400,unit:2},
+        bitcoin:{name:'Bitcoin',symbol:'₿',instrument:'Crypto · Bitcoin / US dollar',description:'Start with Bitcoin. Learn how price moves, how trends form and when to wait.',intro:'Bitcoin is a digital asset traded on exchanges. Prices can differ between venues, and movement can be sharp. We start with Bitcoin rather than every cryptoasset at once. Your first task is observation.',base:60000,unit:100}
+      };
+      const PATH=['Meet the market','Read the trend','Understand pullbacks','Define risk','Practice entries','Manage exits','Review a session'];
+      function journeyState(){if(!ST.journey||typeof ST.journey!=='object') ST.journey={};return ST.journey;}
+      function chooseMarket(){
+        home.replaceChildren(el('div','GXB / CHOOSE YOUR MARKET','eyebrow'),el('h1',`${activeProfile().name}, where will you begin?`),el('p','One market. One first step. Learn to observe before you act.'));
+        const cards=el('div',undefined,'marketChoices');
+        for(const [key,m] of Object.entries(MARKETS)){
+          const card=el('section',undefined,'homeCard');card.append(el('div',m.symbol,'marketSymbol'),el('h2',m.name),el('p',m.description),action(`Explore ${m.name} →`,()=>{journeyState().market=key;saveState(ST);showHome();},true));cards.append(card);
+        }
+        home.append(cards,el('small','Both journeys begin with synthetic examples. No live prices or brokerage account needed.'),action('← Back to my home',showHome));window.scrollTo(0,0);
+      }
+      function journeyPanel(){
+        const j=journeyState(),m=MARKETS[j.market],section=el('section',undefined,'journeyHero');
+        section.append(el('div','YOUR TRADER JOURNEY','eyebrow'));
+        if(!m){section.append(el('h2','Every journey begins with a first read.'),el('p','Meet a market, learn what its chart shows, and practice making thoughtful decisions. Start with a guided introduction.'),action('Choose Gold or Bitcoin →',chooseMarket,true));return section;}
+        const done=!!(j.completed&&j.completed[j.market]);
+        section.append(el('h2',`${m.symbol} ${m.name} journey`),el('p',done?'Your first market mission is complete. Keep building your eye with Free Practice, or revisit the lesson.':'Mission 1 · Meet the market. A short introduction and three guided chart reads.'),action(done?'Review first mission →':'Begin first mission →',()=>mission(j.market),true),action('Change market',chooseMarket));
+        const path=el('div');
+        PATH.forEach((name,i)=>{const row=el('div',undefined,'pathRow');row.append(el('span',i===0&&done?'✓':String(i+1),'pathDot'),el('span',name+(i>0?' · Coming next':done?' · Completed':' · Ready')));path.append(row);});
+        section.append(path,el('small','Lesson completion marks practice, not trading readiness. Later chapters are still being built.'));return section;
+      }
+      function mission(key){
+        const m=MARKETS[key];let round=0,answered=false,misses=0;
+        const examples=[{state:'Rising',values:[2,4,3,6,5,8,7,10],why:'The swing highs and swing lows are stepping upward. A small downward candle can still sit inside a rising trend.'},{state:'Falling',values:[10,8,9,6,7,4,5,2],why:'The swing highs and swing lows are stepping downward. One upward candle does not establish a reversal.'},{state:'Sideways',values:[5,7,4,6,3,7,4,6],why:'Price keeps returning to the same zone without sustained progress upward or downward. Waiting is a valid decision.'}];
+        function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / MISSION 1`,'eyebrow'));home.append(action('← My journey',showHome));window.scrollTo(0,0);}
+        function intro(){frame();home.append(el('h1','Meet the market.'),el('p',m.intro));const card=el('section',undefined,'homeCard');card.append(el('h2','What is day trading?'),el('p','Day trading means opening and closing a position within the same trading day. Your learning starts earlier: reading price, understanding risk, and knowing when to stay out.'),el('h2','Your first mission'),el('p','Read three small charts: rising, falling and sideways. Each candle summarizes an opening price, a closing price, a high and a low. Here, teal candles close higher than they open; pink candles close lower. The wick shows the high and low.'),action('Show me the chart →',draw,true));home.append(card,el('small','Illustrative, synthetic prices in US dollars. This lesson is not a view of today’s market.'));}
+        function draw(){
+          frame();answered=false;const ex=examples[round];home.append(el('h1',`Read ${round+1} of 3`),el('p','Look across the whole chart. Is price making progress up, down, or moving within a range?'));
+          const chart=el('div');
+          // Fixed teaching examples: shape is intentionally simple, never a live quote.
+          const bars=ex.values.map((v,i)=>{const prev=i?ex.values[i-1]:v-1,open=170-prev*11,close=170-v*11,x=62+i*47,up=v>=prev;return `<g><line x1="${x}" x2="${x}" y1="${Math.min(open,close)-9}" y2="${Math.max(open,close)+9}" stroke="var(${up?'--up':'--dn'})" stroke-width="2"/><rect x="${x-10}" y="${Math.min(open,close)}" width="20" height="${Math.max(3,Math.abs(open-close))}" fill="var(${up?'--up':'--dn'})"/></g>`;}).join('');
+          chart.innerHTML=`<svg class="missionChart" viewBox="0 0 520 240" role="img" aria-label="${m.name} synthetic candlestick chart. Read the overall direction."><text x="20" y="24" fill="var(--muted)" font-size="12">${m.instrument} · SYNTHETIC</text><path d="M25 55H445 M25 110H445 M25 175H445" stroke="var(--line)"/>${bars}<text x="450" y="60" fill="var(--muted)" font-size="11">$${m.base+10*m.unit}</text><text x="450" y="175" fill="var(--muted)" font-size="11">$${m.base}</text><text x="25" y="222" fill="var(--muted)" font-size="11">Earlier</text><text x="390" y="222" fill="var(--muted)" font-size="11">Later →</text></svg>`;
+          const feedback=el('div','Choose a direction to see the explanation.','missionFeedback');feedback.setAttribute('aria-live','polite');
+          const choices=el('div',undefined,'homeProfiles');
+          ['Rising','Falling','Sideways'].forEach(label=>choices.append(action(label,()=>{if(answered)return;if(label!==ex.state){misses++;feedback.textContent='Take another look. '+ex.why;return;}answered=true;feedback.textContent='You spotted it. '+ex.why;for(const b of choices.children)b.disabled=true;home.append(action(round<2?'Next chart →':'Complete mission →',()=>{round++;if(round<3)draw();else complete();},true));})));
+          const explain=el('details');explain.append(el('summary','Explain how to read this'),el('p','Follow the turning points from left to right. Higher highs and higher lows suggest a rising trend. Lower highs and lower lows suggest a falling trend. Repeated turns inside a similar price zone suggest sideways movement.'));
+          home.append(chart,choices,feedback,explain);
+        }
+        function complete(){const j=journeyState();if(!j.completed)j.completed={};if(!j.completed[key])j.completed[key]={date:new Date().toISOString(),version:1};j.market=key;saveState(ST);frame();home.append(el('h1','Your first market read is complete.'),el('p',`You explored ${m.name} and identified three market states.${misses?' You used feedback to work through the charts.':' You identified all three on your first attempt.'} This guided lesson is separate from your scored Arena sessions.`),action('Return to my journey →',showHome,true),action('Try Free Practice →',train));}
+        intro();
+      }
       function profiles(){
         home.replaceChildren(el('div','GXB / THE ARENA','eyebrow'),el('h1','Your practice. Your progress.'),el('p','Build your read. Protect your capital. Choose who’s training to keep every session personal.'));
         const choices=el('div',undefined,'homeProfiles');
@@ -2178,13 +2231,13 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       function render(){
         home.replaceChildren();
         const nav=el('nav');nav.append(el('span','GXB / MY ARENA','eyebrow'),action('Switch / create profile',profiles));home.append(nav);
-        home.append(el('h1',`Welcome back, ${activeProfile().name}.`),el('p','Discipline builds freedom. Your training record starts here.'));
+        home.append(el('h1',`Welcome back, ${activeProfile().name}.`),el('p','Build your eye. Find your rhythm. Take the next step.'),journeyPanel());
         let persistent=true;try{const k='gxb_storage_check';localStorage.setItem(k,'1');localStorage.removeItem(k);}catch{persistent=false;}
         home.append(el('p',persistent?'Saved in this browser · Synthetic training results':'Storage is unavailable. Progress lasts only while this page stays open.','homeStatus'));
         const grid=el('div',undefined,'homeGrid');
         const skills=Object.entries(ST.skills||{}), reps=skills.reduce((n,[,s])=>n+s.rounds,0), correct=skills.reduce((n,[,s])=>n+s.correct,0);
         for(const [label,value] of [['Completed sessions',ST.sessions],['Practice accuracy',reps?Math.round(100*correct/reps)+'%':'—'],['Day streak',ST.dayStreak],['Experience',ST.xp+' XP']]){const c=el('div',undefined,'homeCard');c.append(el('small',label),el('strong',String(value)));grid.append(c);}home.append(grid);
-        const actions=el('div',undefined,'homeActions');actions.append(action('Enter the Arena →',train,true),action('Edit name / icon',()=>{train();openProfMenu(true);}));home.append(actions);
+        const actions=el('div',undefined,'homeActions');actions.append(action('Enter the Arena →',train),el('small','Free Practice · mixed synthetic chart drills'),action('Edit name / icon',()=>{train();openProfMenu(true);}));home.append(actions);
         const cols=el('div',undefined,'homeColumns'), performance=el('section',undefined,'homeCard'), history=el('section',undefined,'homeCard');
         performance.append(el('h2','Performance by skill'));
         if(!reps)performance.append(el('p','No reps yet. Start a Guided session to build your baseline.'));
@@ -2193,7 +2246,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         const records=Array.isArray(ST.history)?ST.history:[];
         if(!records.length)history.append(el('p','Completed sessions will appear here. Earlier sessions have no saved detail; your existing totals are preserved.'));
         for(const s of [...records].reverse()){const row=el('article',undefined,'homeRow');row.append(el('div',`${new Date(s.date).toLocaleDateString()} · ${s.focus}`),el('div',`${s.grade} · ${s.correct}/${s.rounds} correct · ${s.r>0?'+':''}${Number(s.r).toFixed(1)}R`),el('small',`${s.minutes} min · +${s.xp} XP · ${s.scored} scored decisions${s.scored?' · '+(s.r/s.scored).toFixed(2)+'R / decision':''}`));history.append(row);}
-        cols.append(performance,history);home.append(cols,el('p','Accuracy measures chart decisions. R measures simulated outcomes. Neither represents live trading profit.'));
+        cols.append(performance,history);const recordsPanel=el('details');recordsPanel.append(el('summary','My performance & session history'),grid,cols);home.append(recordsPanel,el('p','Accuracy measures chart decisions. R measures simulated outcomes. Neither represents live trading profit.'));
       }
       back.onclick=()=>{if(answering)return;showHome();};
       // A visitor's first experience is identity, not an anonymous running drill.
