@@ -2201,10 +2201,11 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         section.append(el('div','Begin your trading journey','eyebrow'));
         if(!m){section.append(el('h2','Every journey begins with the first read.'));const reveal=el('details',undefined,'journeyReveal'),toggle=el('summary','⌄');toggle.title='Explore markets';toggle.setAttribute('aria-label','Explore markets');reveal.append(toggle,el('p','Meet the market, learn its charts, and practice making thoughtful decisions.'),marketCards());section.append(reveal);return section;}
         const done=!!(j.completed&&j.completed[j.market]);
-        section.append(el('h2',`${m.symbol} ${m.name} journey`),el('p',done?'Your first market mission is complete. Keep building your eye with Free Practice, or revisit the lesson.':'Mission 1 · Meet the market. A short introduction and three guided chart reads.'),action(done?'Review first mission →':'Begin first mission →',()=>mission(j.market),true),action('Change market',chooseMarket));
+        const next=done?PATH.findIndex((_,i)=>i>0&&!j.skills?.[j.market]?.includes(i)):0;
+        section.append(el('h2',`${m.symbol} ${m.name} journey`),el('p',next<0?'You have explored every introductory skill. Keep practicing, or revisit any lesson below.':`Up next: ${PATH[next]}. Continue whenever you are ready.`),action(next===0?'Begin first mission →':next<0?'Continue in Free Practice →':`Continue: ${PATH[next]} →`,()=>next===0?mission(j.market):next<0?train():skillMission(j.market,next),true),action('Change market',chooseMarket));
         const path=el('div');
-        PATH.forEach((name,i)=>{const row=el('div',undefined,'pathRow');row.append(el('span',i===0&&done?'✓':String(i+1),'pathDot'),el('span',name+(i>0?' · Coming next':done?' · Completed':' · Ready')));path.append(row);});
-        section.append(path,el('small','Lesson completion marks practice, not trading readiness. Later chapters are still being built.'));return section;
+        PATH.forEach((name,i)=>{const row=el('div',undefined,'pathRow'),finished=i===0?done:!!j.skills?.[j.market]?.includes(i);row.append(el('span',finished?'✓':String(i+1),'pathDot'),action(name+(finished?' · Review':' · Begin'),()=>i===0?mission(j.market):skillMission(j.market,i)));path.append(row);});
+        section.append(path,el('small','Explore any skill at your own pace. Lesson completion marks practice, not trading readiness.'));return section;
       }
       function mission(key){
         const m=MARKETS[key];let round=0,answered=false,misses=0;
@@ -2223,8 +2224,48 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const explain=el('details');explain.append(el('summary','Explain how to read this'),el('p','Follow the turning points from left to right. Higher highs and higher lows suggest a rising trend. Lower highs and lower lows suggest a falling trend. Repeated turns inside a similar price zone suggest sideways movement.'));
           home.append(chart,choices,feedback,explain);
         }
-        function complete(){const j=journeyState();if(!j.completed)j.completed={};if(!j.completed[key])j.completed[key]={date:new Date().toISOString(),version:1};j.market=key;saveState(ST);frame();home.append(el('h1','Your first market read is complete.'),el('p',`You explored ${m.name} and identified three market states.${misses?' You used feedback to work through the charts.':' You identified all three on your first attempt.'} This guided lesson is separate from your scored Arena sessions.`),action('Return to my journey →',showHome,true),action('Try Free Practice →',train));}
+        function complete(){const j=journeyState();if(!j.completed)j.completed={};if(!j.completed[key])j.completed[key]={date:new Date().toISOString(),version:1};j.market=key;saveState(ST);frame();home.append(el('h1','Your first market read is complete.'),el('p',`You explored ${m.name} and identified three market states.${misses?' You used feedback to work through the charts.':' You identified all three on your first attempt.'} This guided lesson is separate from your scored Arena sessions.`),action('Continue: Read the trend →',()=>skillMission(key,1),true),action('Return to my journey →',showHome),action('Try Free Practice →',train));}
         intro();
+      }
+      function skillMission(key,chapter){
+        const m=MARKETS[key];
+        const lessons={
+          1:{intro:'A trend is a sequence of turning points. Read the whole structure rather than reacting to the latest candle.',questions:[
+            ['Successive highs are 101, 104, 107. Successive lows are 98, 100, 103. What does this structure suggest?',['Rising trend','Falling trend','No evidence'],0,'Both the highs and lows are stepping upward. This describes structure; it does not guarantee the next move.'],
+            ['A rising trend prints one red candle, but the previous swing low still holds. What can you conclude?',['The trend definitely reversed','One candle is not enough to establish a reversal','Buy immediately'],1,'A candle is one observation. Compare it with the surrounding swing structure before naming a reversal.'],
+            ['Highs and lows overlap repeatedly inside the same zone. What is the most defensible label?',['Sideways range','Guaranteed breakout','Strong falling trend'],0,'Repeated overlap without sustained directional progress suggests a range.']
+          ]},
+          2:{intro:'A pullback is a counter-move within a trend. Distinguish it from a break in structure, and leave room for uncertainty.',questions:[
+            ['Price trends upward, retreats shallowly, and holds above its prior swing low. Which interpretation fits the evidence?',['Possible pullback','Certain reversal','Guaranteed continuation'],0,'Holding the prior swing low is consistent with a pullback. Continuation still needs evidence.'],
+            ['Price falls through the prior swing low after an uptrend. What should you do with your original read?',['Ignore it','Reassess the structure','Double the position'],1,'A broken swing low challenges the original structure. Reassess rather than defend the earlier interpretation.'],
+            ['The candles compress near a high without a clear break either way. What is a disciplined response?',['Wait for clearer evidence','Assume a breakout','Assume a crash'],0,'Compression alone does not establish the next direction. Waiting preserves your ability to act on better evidence.']
+          ]},
+          3:{intro:'Define risk before an entry. In these simplified exercises, 1R is the planned loss if a stop is filled as intended. Real fills can differ.',questions:[
+            ['A simulated long entry is $100 with a stop at $98. What is the planned price risk per unit, before costs?',['$2','$98','$100'],0,'Entry minus stop is $2 per unit. Position size determines the planned dollar risk.'],
+            ['Your simulated risk budget is $10 and planned risk is $2 per unit. Ignoring fees and slippage, how many units fit?',['20','5','10'],1,'$10 divided by $2 per unit equals 5 units. This is a teaching example, not a recommendation for your account.'],
+            ['Can a stop order guarantee the exact planned loss in a fast market?',['Yes, always','No, fills can slip','Only if you feel confident'],1,'Gaps, liquidity and execution can produce a worse fill than the planned level. Planned risk is not a guarantee.']
+          ]},
+          4:{intro:'An entry is a planned decision with a trigger and an invalidation point. A clear chart read alone does not require a trade.',questions:[
+            ['Your practice plan requires a pullback and confirmation, but price has only accelerated away. What matches the plan?',['Chase immediately','Wait for the planned setup','Move the stop farther away'],1,'A missed move is not a reason to abandon the entry conditions.'],
+            ['Before taking a simulated entry, which pair matters most?',['A trigger and a defined invalidation point','A prediction and excitement','A winning streak and confidence'],0,'The trigger defines why you act; invalidation defines when the original idea no longer holds.'],
+            ['The setup is unclear and the planned reward does not justify the risk. Which decision is valid?',['No trade','Take it to stay active','Increase the size'],0,'No trade is a complete decision. Activity is not the objective.']
+          ]},
+          5:{intro:'An exit follows a plan for risk and reward. Manage the idea using evidence rather than changing rules to avoid a loss.',questions:[
+            ['The practice trade reaches the invalidation level you defined before entry. What follows the plan?',['Honor the planned exit','Widen the stop to avoid losing','Add size without a new plan'],0,'Invalidation is the point where the original trade idea has failed under your plan.'],
+            ['A trade moves in your favor. Does that alone justify removing its risk controls?',['Yes','No','Only after two green candles'],1,'An unrealized gain does not eliminate uncertainty or the need for a management plan.'],
+            ['You exit a profitable trade according to your plan, then price rises further. What should your review judge?',['Whether you caught the absolute top','Whether the decision followed a sound plan','Whether you can win it back'],1,'Judge the decision using information available at the time. Future movement does not by itself make the exit wrong.']
+          ]},
+          6:{intro:'Review decisions and outcomes separately. Accuracy, simulated R and adherence to a plan describe different parts of your practice.',questions:[
+            ['You win 3 trades at +2R each and lose 2 at −1R each. What is the total, before costs?',['+4R','+1R','+6R'],0,'3 × 2R minus 2 × 1R equals +4R. Win rate alone does not describe the outcome.'],
+            ['A well-planned trade loses within its intended risk. What should you investigate?',['The setup, execution and whether the plan was followed','Assume all losses are mistakes','Increase size to recover'],0,'A sound decision can lose. Review the process and collect enough comparable evidence before drawing conclusions.'],
+            ['What makes a useful next-session lesson?',['Never lose again','Wait for the pullback confirmation required by my plan','Trade more often'],1,'A specific action can be practiced and reviewed. A promised outcome cannot.']
+          ]}
+        };
+        const lesson=lessons[chapter];let round=0;
+        function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / SKILL ${chapter+1}`,'eyebrow'),action('← My journey',showHome),el('h1',PATH[chapter]));window.scrollTo(0,0);}
+        function draw(){frame();home.append(el('p',lesson.intro),el('small',`Guided checkpoint ${round+1} of ${lesson.questions.length} · synthetic teaching examples`));const [prompt,answers,correct,why]=lesson.questions[round],card=el('section',undefined,'homeCard'),choices=el('div',undefined,'homeProfiles'),feedback=el('p','','missionFeedback');feedback.setAttribute('aria-live','polite');card.append(el('h2',prompt));let resolved=false;answers.forEach((answer,i)=>choices.append(action(answer,()=>{if(resolved)return;if(i!==correct){feedback.textContent='Reconsider: '+why;return;}resolved=true;for(const b of choices.children)b.disabled=true;feedback.textContent='That’s it. '+why;card.append(action(round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →',()=>{round++;if(round<lesson.questions.length)draw();else finish();},true));})));card.append(choices,feedback);home.append(card);}
+        function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter))j.skills[key].push(chapter);saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
+        draw();
       }
       function profiles(){
         home.replaceChildren(el('div','GXB / THE ARENA','eyebrow'),el('h1','Your practice. Your progress.'),el('p','Build your read. Protect your capital. Choose who’s training to keep every session personal.'));

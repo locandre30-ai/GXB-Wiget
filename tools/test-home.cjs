@@ -31,6 +31,20 @@ find('Begin first mission →').onclick();assert.ok(find('What is day trading?')
 find('Show me the chart →').onclick();find('Falling').onclick();assert.ok(find('Complete mission →')===undefined);
 find('Rising').onclick();find('Next chart →').onclick();find('Falling').onclick();find('Next chart →').onclick();find('Sideways').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.gold);assert.equal(context.ST.sessions,4);
+const chapters=[
+ ['Read the trend',['Rising trend','One candle is not enough to establish a reversal','Sideways range']],
+ ['Understand pullbacks',['Possible pullback','Reassess the structure','Wait for clearer evidence']],
+ ['Define risk',['$2','5','No, fills can slip']],
+ ['Practice entries',['Wait for the planned setup','A trigger and a defined invalidation point','No trade']],
+ ['Manage exits',['Honor the planned exit','No','Whether the decision followed a sound plan']],
+ ['Review a session',['+4R','The setup, execution and whether the plan was followed','Wait for the pullback confirmation required by my plan']]
+];
+for(const [name,answers] of chapters){
+  assert.ok(find(`Continue: ${name} →`));find(`Continue: ${name} →`).onclick();
+  answers.forEach((answer,i)=>{find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();});
+}
+assert.equal(context.ST.journey.skills.gold.length,6);
+assert.equal(context.ST.sessions,4);assert.ok(find('Continue in Free Practice →'));
 find('Return to my journey →').onclick();find('Change market').onclick();find('Explore Bitcoin →').onclick();
 assert.equal(context.ST.journey.market,'bitcoin');assert.equal(context.ST.journey.completed.bitcoin,undefined);assert.ok(context.ST.journey.completed.gold);
 find('Begin first mission →').onclick();find('Show me the chart →').onclick();
