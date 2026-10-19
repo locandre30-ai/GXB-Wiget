@@ -1781,6 +1781,8 @@
     };
 
     function finishSession(){
+      if(SES.completed) return;
+      SES.completed = true;
       const acc = Math.round(100*SES.correct/ROUNDS_PER_SESSION);
       const grade = gradeFor(acc);
       const mins = Math.max(1, Math.round((Date.now()-SES.start)/60000));
@@ -1793,6 +1795,11 @@
         ST.lastDay = today;
       }
       ST.sessions++;
+      if(!Array.isArray(ST.history)) ST.history = [];
+      ST.history.push({date:new Date().toISOString(), focus:FOCUS, correct:SES.correct,
+        rounds:ROUNDS_PER_SESSION, r:SES.rTotal, grade, minutes:mins,
+        xp:SES.xpGained, combo:SES.bestCombo,
+        scored:SES.results.filter(r=>r.r !== null).length, scoringVersion:2});
       ST.bestCombo = Math.max(ST.bestCombo, SES.bestCombo);
       saveState(ST);
       paintMeters();
@@ -2057,6 +2064,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     }
 
     function switchProfile(id){
+      if(answering) return;
       if(id === BOOK.active || !BOOK.profiles[id]) return;
       saveState(ST);            // bank the outgoing profile first
       BOOK.active = id;
@@ -2078,6 +2086,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     }
 
     $("profAdd").onclick = () => {
+      if(answering) return;
       saveState(ST);
       const id = newProfileId();
       BOOK.profiles[id] = { name: uniqueProfileName(), icon: unusedIcon(), state: normalize(null) };
@@ -2101,6 +2110,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     $("profDel").onclick = () => { if(!$("profDel").disabled) $("profConfirm").hidden = false; };
     $("profDelNo").onclick = () => { $("profConfirm").hidden = true; };
     $("profDelYes").onclick = () => {
+      if(answering) return;
       if(Object.keys(BOOK.profiles).length < 2) return;
       delete BOOK.profiles[BOOK.active];
       BOOK.active = Object.keys(BOOK.profiles)[0];
@@ -2117,6 +2127,79 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     new ResizeObserver(sizeCanvases).observe(chart);
     sizeCanvases();
     newSession();
+
+    initDashboard();
+
+    // Personal home: local profiles, never authentication or cloud accounts.
+    function initDashboard(){
+      const style = document.createElement('style');
+      style.textContent = `
+        .home{max-width:1100px;margin:auto;padding:clamp(20px,5vw,64px);position:relative}
+        .home h1{text-transform:none;letter-spacing:-.04em;font-size:clamp(32px,6vw,56px);margin:22px 0 12px}
+        .home p{color:var(--muted);line-height:1.7}.home small{color:var(--muted)}
+        .home nav,.homeActions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+        .home .eyebrow{color:var(--gold);letter-spacing:.18em;font-size:11px;text-transform:uppercase}
+        .homeGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:28px 0}
+        .homeCard{border:1px solid var(--line);border-radius:18px;padding:22px;background:var(--bg1);min-width:0}
+        .homeCard strong{display:block;font-size:28px;margin-top:10px}.homeCard small{font-size:12px}
+        .homeColumns{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
+        .home h2{font-size:20px;margin:0 0 18px}.homeRow{padding:16px 0;border-top:1px solid var(--line);line-height:1.7;overflow-wrap:anywhere}
+        .home progress{display:block;width:100%;height:8px;margin-top:9px;accent-color:var(--holoA)}
+        .home input{width:100%;padding:14px;border-radius:12px;background:var(--bg0);color:var(--ink);border:1px solid var(--line);font:inherit;margin:10px 0 16px}
+        .home button:focus-visible,.home input:focus-visible{outline:2px solid var(--holoA);outline-offset:4px}
+        .homePrimary{background:var(--gold);color:var(--bg0);border:0;border-radius:999px;padding:13px 22px;cursor:pointer;font:inherit;font-weight:700}
+        .homeProfiles{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0}.homeStatus{color:var(--gold)!important}
+        #homeBack{position:relative;margin:16px var(--pad) 0}
+        @media(max-width:680px){.homeGrid{grid-template-columns:1fr 1fr}.homeColumns{grid-template-columns:1fr}.homeCard{padding:16px}}
+      `;
+      document.head.appendChild(style);
+      const home = document.createElement('main'); home.className='home'; home.id='userHome';
+      const arena = document.querySelector('.wrap');
+      const back = document.createElement('button'); back.id='homeBack'; back.className='chip'; back.textContent='← My dashboard'; back.hidden=true;
+      document.body.prepend(home,back);
+      function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
+      function action(text,fn,primary=false){const b=el('button',text,primary?'homePrimary':'chip');b.type='button';b.onclick=fn;return b;}
+      function showHome(){activeProfile().onboarded=true;saveState(ST);arena.hidden=true;back.hidden=true;home.hidden=false;openProfMenu(false);render();window.scrollTo(0,0);}
+      function train(){home.hidden=true;arena.hidden=false;back.hidden=false;newSession();sizeCanvases();document.querySelector('h1').focus?.();window.scrollTo(0,0);}
+      function profiles(){
+        home.replaceChildren(el('div','GXB / THE ARENA','eyebrow'),el('h1','Your practice. Your progress.'),el('p','Build your read. Protect your capital. Choose who’s training to keep every session personal.'));
+        const choices=el('div',undefined,'homeProfiles');
+        for(const [id,p] of Object.entries(BOOK.profiles)) choices.append(action(`${p.icon||'👑'} ${p.name}`,()=>{switchProfile(id);showHome();}));
+        home.append(choices);
+        const form=el('form',undefined,'homeCard');form.append(el('h2','Create your profile'));
+        const label=el('label','What should we call you?');label.htmlFor='welcomeName';
+        const input=el('input');input.id='welcomeName';input.maxLength=24;input.required=true;input.autocomplete='nickname';input.placeholder='King';
+        const submit=el('button','Create profile','homePrimary');submit.type='submit';
+        form.append(label,input,submit);
+        form.onsubmit=e=>{e.preventDefault();const name=input.value.trim();if(!name){input.setCustomValidity('Enter a name to continue.');input.reportValidity();return;}saveState(ST);const id=newProfileId();BOOK.profiles[id]={name,icon:unusedIcon(),state:normalize(null)};BOOK.active=id;saveState();applyProfile();showHome();};
+        input.oninput=()=>input.setCustomValidity('');
+        home.append(form,el('p','Profiles are saved in this browser on this device. They are not password-protected accounts and do not sync across devices.'));
+      }
+      function render(){
+        home.replaceChildren();
+        const nav=el('nav');nav.append(el('span','GXB / MY ARENA','eyebrow'),action('Switch / create profile',profiles));home.append(nav);
+        home.append(el('h1',`Welcome back, ${activeProfile().name}.`),el('p','Discipline builds freedom. Your training record starts here.'));
+        let persistent=true;try{const k='gxb_storage_check';localStorage.setItem(k,'1');localStorage.removeItem(k);}catch{persistent=false;}
+        home.append(el('p',persistent?'Saved in this browser · Synthetic training results':'Storage is unavailable. Progress lasts only while this page stays open.','homeStatus'));
+        const grid=el('div',undefined,'homeGrid');
+        const skills=Object.entries(ST.skills||{}), reps=skills.reduce((n,[,s])=>n+s.rounds,0), correct=skills.reduce((n,[,s])=>n+s.correct,0);
+        for(const [label,value] of [['Completed sessions',ST.sessions],['Practice accuracy',reps?Math.round(100*correct/reps)+'%':'—'],['Day streak',ST.dayStreak],['Experience',ST.xp+' XP']]){const c=el('div',undefined,'homeCard');c.append(el('small',label),el('strong',String(value)));grid.append(c);}home.append(grid);
+        const actions=el('div',undefined,'homeActions');actions.append(action('Enter the Arena →',train,true),action('Edit name / icon',()=>{train();openProfMenu(true);}));home.append(actions);
+        const cols=el('div',undefined,'homeColumns'), performance=el('section',undefined,'homeCard'), history=el('section',undefined,'homeCard');
+        performance.append(el('h2','Performance by skill'));
+        if(!reps)performance.append(el('p','No reps yet. Start a Guided session to build your baseline.'));
+        for(const [name,s] of skills){if(!s.rounds)continue;const row=el('div',undefined,'homeRow');const acc=Math.round(100*s.correct/s.rounds);row.append(el('div',`${name} · ${acc}%`),el('small',`${s.correct}/${s.rounds} correct · ${s.rCount||0} scored decisions`));const bar=el('progress');bar.max=100;bar.value=acc;bar.setAttribute('aria-label',name+' accuracy');row.append(bar);performance.append(row);}
+        history.append(el('h2','Session history'));
+        const records=Array.isArray(ST.history)?ST.history:[];
+        if(!records.length)history.append(el('p','Completed sessions will appear here. Earlier sessions have no saved detail; your existing totals are preserved.'));
+        for(const s of [...records].reverse()){const row=el('article',undefined,'homeRow');row.append(el('div',`${new Date(s.date).toLocaleDateString()} · ${s.focus}`),el('div',`${s.grade} · ${s.correct}/${s.rounds} correct · ${s.r>0?'+':''}${Number(s.r).toFixed(1)}R`),el('small',`${s.minutes} min · +${s.xp} XP · ${s.scored} scored decisions${s.scored?' · '+(s.r/s.scored).toFixed(2)+'R / decision':''}`));history.append(row);}
+        cols.append(performance,history);home.append(cols,el('p','Accuracy measures chart decisions. R measures simulated outcomes. Neither represents live trading profit.'));
+      }
+      back.onclick=()=>{if(answering)return;showHome();};
+      // A visitor's first experience is identity, not an anonymous running drill.
+      arena.hidden=true;
+      if(activeProfile().onboarded) showHome(); else profiles();
+    }
   </script>
 </body>
 </html>

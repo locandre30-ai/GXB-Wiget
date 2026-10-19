@@ -60,3 +60,8 @@ Progress (XP, level, streak) persists in `localStorage` per browser.
 Edit the HTML files directly and open in a browser — no build step.
 Test at desktop width and ≤980px, and check `prefers-reduced-motion`.
 See `CLAUDE.md` for full architecture and brand standards.
+
+## Application development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for the local branch, roadmap, and preview command. Run `node tools/preview.cjs` to serve the Arena at http://127.0.0.1:8766/practice.html.
+
