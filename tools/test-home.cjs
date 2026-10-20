@@ -28,11 +28,11 @@ assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Bitcoin coin')));
 assert.equal(find('Edit name / icon'),undefined);
 find('Explore Gold →').onclick();assert.equal(context.ST.journey.market,'gold');
 find('Begin first mission →').onclick();assert.ok(find('What is day trading?'));
-find('Show me the chart →').onclick();find('Falling').onclick();assert.ok(find('Complete mission →')===undefined);
-find('Rising').onclick();find('Next chart →').onclick();find('Falling').onclick();find('Next chart →').onclick();find('Sideways').onclick();find('Complete mission →').onclick();
+find('Show me the chart →').onclick();find('Downtrend').onclick();assert.ok(find('Complete mission →')===undefined);
+find('Uptrend').onclick();find('Next chart →').onclick();find('Downtrend').onclick();find('Next chart →').onclick();find('Consolidation').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.gold);assert.equal(context.ST.sessions,4);
 const chapters=[
- ['Read the trend',['Rising trend','One candle is not enough to establish a reversal','Sideways range']],
+ ['Read the trend',['Uptrend','One candle is not enough to establish a reversal','Consolidation']],
  ['Understand pullbacks',['Possible pullback','Reassess the structure','Wait for clearer evidence']],
  ['Define risk',['$2','5','No, fills can slip']],
  ['Practice entries',['Wait for the planned setup','A trigger and a defined invalidation point','No trade']],
@@ -41,14 +41,14 @@ const chapters=[
 ];
 for(const [name,answers] of chapters){
   assert.ok(find(`Continue: ${name} →`));find(`Continue: ${name} →`).onclick();
-  answers.forEach((answer,i)=>{const figure=all(home).find(e=>e.tag==='figure');assert.ok(figure,'Every skill checkpoint needs a chart');assert.ok(figure.innerHTML.includes('<svg'));assert.ok(!figure.innerHTML.includes('NaN'));find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();});
+  answers.forEach((answer,i)=>{const figure=all(home).find(e=>e.tag==='figure');assert.ok(figure,'Every skill checkpoint needs a chart');assert.ok(figure.innerHTML.includes('<svg'));assert.ok(!figure.innerHTML.includes('NaN'));assert.ok(all(home).some(e=>e.className==='checkpointLabel'));if(name!=='Review a session'){assert.ok(/>\$[\d,]+/.test(figure.innerHTML),'Price ticks must show dollars');assert.ok(all(figure).some(e=>String(e.textContent).includes('Each candle represents 5 minutes')));}if(name==='Read the trend'&&i===0){assert.ok(find('Uptrend'));assert.ok(find('Downtrend'));assert.ok(find('Consolidation'));assert.ok(find('No evidence'));}find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();});
 }
 assert.equal(context.ST.journey.skills.gold.length,6);
 assert.equal(context.ST.sessions,4);assert.ok(find('Continue in Free Practice →'));
 find('Return to my journey →').onclick();find('Change market').onclick();find('Explore Bitcoin →').onclick();
 assert.equal(context.ST.journey.market,'bitcoin');assert.equal(context.ST.journey.completed.bitcoin,undefined);assert.ok(context.ST.journey.completed.gold);
 find('Begin first mission →').onclick();find('Show me the chart →').onclick();
-find('Rising').onclick();find('Next chart →').onclick();find('Falling').onclick();find('Next chart →').onclick();find('Sideways').onclick();find('Complete mission →').onclick();
+find('Uptrend').onclick();find('Next chart →').onclick();find('Downtrend').onclick();find('Next chart →').onclick();find('Consolidation').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.bitcoin);find('Return to my journey →').onclick();
 assert.ok(find('Completed sessions'));assert.equal(book.profiles.king.state.sessions,4);
 find('Switch / create profile').onclick();
