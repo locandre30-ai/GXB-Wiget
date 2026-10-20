@@ -2,7 +2,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const html=fs.readFileSync(require('node:path').join(__dirname,'../practice.html'),'utf8');
 for(const s of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi))new Function(s[1]);
 class Element{
-  constructor(tag){this.tag=tag;this.children=[];this.hidden=false;this.value='';}
+  constructor(tag){this.tag=tag;this.children=[];this.hidden=false;this.value='';this.style={};}
   append(...nodes){this.children.push(...nodes);} replaceChildren(...nodes){this.children=nodes;}
   appendChild(node){this.children.push(node);return node;}
   setAttribute(k,v){this[k]=v;} focus(){} setCustomValidity(v){this.invalid=v;} reportValidity(){}
@@ -22,7 +22,7 @@ const all=e=>[e,...e.children.flatMap(all)];
 const find=text=>all(home).find(e=>e.textContent===text||e['aria-label']===text);
 assert.equal(arena.hidden,true);assert.ok(find('Create your profile'));
 find('👑 King').onclick();assert.ok(find('Welcome back, King.'));assert.ok(find('70%'));assert.ok(find('Entries · 70%'));
-assert.ok(find('Explore markets'));assert.ok(find('Gold'));assert.ok(find('Bitcoin'));
+assert.ok(find('Start Here'));assert.ok(find('Gold'));assert.ok(find('Bitcoin'));
 assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Gold bullion bars')));
 assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Bitcoin coin')));
 assert.equal(find('Edit name / icon'),undefined);
@@ -41,7 +41,7 @@ const chapters=[
 ];
 for(const [name,answers] of chapters){
   assert.ok(find(`Continue: ${name} →`));find(`Continue: ${name} →`).onclick();
-  answers.forEach((answer,i)=>{find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();});
+  answers.forEach((answer,i)=>{const figure=all(home).find(e=>e.tag==='figure');assert.ok(figure,'Every skill checkpoint needs a chart');assert.ok(figure.innerHTML.includes('<svg'));assert.ok(!figure.innerHTML.includes('NaN'));find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();});
 }
 assert.equal(context.ST.journey.skills.gold.length,6);
 assert.equal(context.ST.sessions,4);assert.ok(find('Continue in Free Practice →'));
