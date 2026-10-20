@@ -32,7 +32,7 @@ find('Show me the chart →').onclick();find('Downtrend').onclick();assert.ok(fi
 find('Uptrend').onclick();find('Next chart →').onclick();find('Downtrend').onclick();find('Next chart →').onclick();find('Consolidation').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.gold);assert.equal(context.ST.sessions,4);
 const chapters=[
- ['Read the trend',['Uptrend','One candle is not enough to establish a reversal','Consolidation']],
+ ['Read the trend',['Uptrend','No — the marked swing low still holds','Consolidation']],
  ['Understand pullbacks',['Possible pullback','Reassess the structure','Wait for clearer evidence']],
  ['Define risk',['$2','5','No, fills can slip']],
  ['Practice entries',['Wait for the planned setup','A trigger and a defined invalidation point','No trade']],
@@ -41,7 +41,28 @@ const chapters=[
 ];
 for(const [name,answers] of chapters){
   assert.ok(find(`Continue: ${name} →`));find(`Continue: ${name} →`).onclick();
-  answers.forEach((answer,i)=>{const figure=all(home).find(e=>e.tag==='figure');assert.ok(figure,'Every skill checkpoint needs a chart');assert.ok(figure.innerHTML.includes('<svg'));assert.ok(!figure.innerHTML.includes('NaN'));assert.ok(all(home).some(e=>e.className==='checkpointLabel'));if(name!=='Review a session'){assert.ok(/>\$[\d,]+/.test(figure.innerHTML),'Price ticks must show dollars');assert.ok(all(figure).some(e=>String(e.textContent).includes('Each candle represents 5 minutes')));}if(name==='Read the trend'&&i===0){assert.ok(find('Uptrend'));assert.ok(find('Downtrend'));assert.ok(find('Consolidation'));assert.ok(find('No evidence'));}find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();});
+  answers.forEach((answer,i)=>{
+    const figure=all(home).find(e=>e.tag==='figure');assert.ok(figure,'Every skill checkpoint needs a chart');
+    const markup=()=>all(figure).map(e=>e.innerHTML||'').join('');
+    assert.ok(markup().includes('<svg'));assert.ok(!markup().includes('NaN'));assert.ok(all(home).some(e=>e.className==='checkpointLabel'));
+    assert.ok(find('Explain this setup'));assert.equal(find('Chart data & candle key'),undefined);
+    if(name!=='Review a session'){
+      assert.ok(/>\$[\d,]+/.test(markup()),'Price ticks must show dollars');
+      assert.ok(find('1 minute'));assert.ok(find('5 minutes'));assert.ok(find('10 minutes'));assert.ok(find('1 hour'));
+    }
+    if(name==='Read the trend'&&i===0){
+      assert.ok(find('Uptrend'));assert.ok(find('Downtrend'));assert.ok(find('Consolidation'));assert.ok(find('No evidence'));
+      const parsed=()=>[...markup().matchAll(/aria-label="[\d:]+ Open \$([\d,.]+), high \$([\d,.]+), low \$([\d,.]+), close \$([\d,.]+)"/g)].map(m=>m.slice(1).map(v=>Number(v.replaceAll(',',''))));
+      find('1 minute').onclick();const minute=parsed();assert.equal(minute.length,600);
+      for(const [label,size] of [['5 minutes',5],['10 minutes',10],['1 hour',60]]){
+        find(label).onclick();const combined=parsed();assert.equal(combined.length,600/size);
+        combined.forEach((b,n)=>{const slice=minute.slice(n*size,(n+1)*size);assert.deepEqual(b,[slice[0][0],Math.max(...slice.map(v=>v[1])),Math.min(...slice.map(v=>v[2])),slice.at(-1)[3]]);});
+      }
+      find('5 minutes').onclick();
+    }
+    if(name==='Read the trend'&&i===1){assert.ok(markup().includes('Previous swing low'));assert.ok(markup().includes('stroke-width="2"'));}
+    find(answer).onclick();find(i<2?'Next checkpoint →':'Finish skill →').onclick();
+  });
 }
 assert.equal(context.ST.journey.skills.gold.length,6);
 assert.equal(context.ST.sessions,4);assert.ok(find('Continue in Free Practice →'));

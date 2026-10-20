@@ -2165,6 +2165,9 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         .journeyHero>.homePrimary,.journeyHero>.chip{margin:10px 6px 18px;white-space:normal;line-height:1.5}.journeyHero>.homePrimary{display:block;width:fit-content;max-width:100%;margin:22px auto 10px}
         .chartCaption{font-size:13px;text-align:left}.chartData{font-size:12px;line-height:1.8;overflow-wrap:anywhere}
         .home .checkpointLabel{display:block;margin:14px 0 32px;line-height:1.8}
+        .chartTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.chartTools .chip{padding:7px 12px;text-transform:none;letter-spacing:0}
+        .chartScroll{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--bg0)}.chartScroll .missionChart{border:0;margin:0;max-width:none;border-radius:0}
+        .chartReadout{font-size:12px;line-height:1.8;color:var(--muted);margin:10px 0}.chartHelp{margin:16px 0}.chartHelp summary{font-size:14px!important}
         .marketChoices .homeCard{align-items:center;text-align:center;padding:clamp(10px,2vw,24px)}.marketArt{width:100%;max-width:180px;height:112px}.marketChoices h2{margin:10px 0}.marketChoices .chip{letter-spacing:0;text-transform:none;padding:9px 12px}
         .marketChoices{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.marketChoices p{font-size:13px}.marketChoices small{display:block;margin-bottom:12px}
         @media(max-width:680px){.homeGrid{grid-template-columns:1fr 1fr}.homeColumns{grid-template-columns:1fr}.homeCard{padding:16px}}
@@ -2217,10 +2220,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         function intro(){frame();home.append(el('h1','Meet the market.'),el('p',m.intro));const card=el('section',undefined,'homeCard');card.append(el('h2','What is day trading?'),el('p','Day trading means opening and closing a position within the same trading day. Your learning starts earlier: reading price, understanding risk, and knowing when to stay out.'),el('h2','Your first mission'),el('p','Read three small charts: uptrend, downtrend and consolidation. Each candle summarizes an opening price, a closing price, a high and a low. Here, teal candles close higher than they open; pink candles close lower. The wick shows the high and low.'),action('Show me the chart →',draw,true));home.append(card,el('small','Illustrative, synthetic prices in US dollars. This lesson is not a view of today’s market.'));}
         function draw(){
           frame();answered=false;const ex=examples[round];home.append(el('h1',`Read ${round+1} of 3`),el('p','Look across the whole chart. Is price making progress up, down, or moving within a range?'));
-          const chart=el('div');
-          // Fixed teaching examples: shape is intentionally simple, never a live quote.
-          const bars=ex.values.map((v,i)=>{const prev=i?ex.values[i-1]:v-1,open=170-prev*11,close=170-v*11,x=62+i*47,up=v>=prev;return `<g><line x1="${x}" x2="${x}" y1="${Math.min(open,close)-9}" y2="${Math.max(open,close)+9}" stroke="var(${up?'--up':'--dn'})" stroke-width="2"/><rect x="${x-10}" y="${Math.min(open,close)}" width="20" height="${Math.max(3,Math.abs(open-close))}" fill="var(${up?'--up':'--dn'})"/></g>`;}).join('');
-          chart.innerHTML=`<svg class="missionChart" viewBox="0 0 520 240" role="img" aria-label="${m.name} synthetic candlestick chart. Read the overall direction."><text x="20" y="24" fill="var(--muted)" font-size="12">${m.instrument} · SYNTHETIC</text><path d="M25 55H445 M25 110H445 M25 175H445" stroke="var(--line)"/>${bars}<text x="450" y="60" fill="var(--muted)" font-size="11">$${m.base+10*m.unit}</text><text x="450" y="175" fill="var(--muted)" font-size="11">$${m.base}</text><text x="25" y="222" fill="var(--muted)" font-size="11">Earlier</text><text x="390" y="222" fill="var(--muted)" font-size="11">Later →</text></svg>`;
+          const chart=skillChart(m,0,round);
           const feedback=el('div','Choose a direction to see the explanation.','missionFeedback');feedback.setAttribute('aria-live','polite');
           const choices=el('div',undefined,'homeProfiles');
           ['Uptrend','Downtrend','Consolidation'].forEach(label=>choices.append(action(label,()=>{if(answered)return;if(label!==ex.state){misses++;feedback.textContent='Take another look. '+ex.why;return;}answered=true;feedback.textContent='You spotted it. '+ex.why;for(const b of choices.children)b.disabled=true;home.append(action(round<2?'Next chart →':'Complete mission →',()=>{round++;if(round<3)draw();else complete();},true));})));
@@ -2238,6 +2238,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           figure.append(el('figcaption','Example session: +2R, +2R, +2R, −1R, −1R. Review outcomes alongside the decisions behind them.','chartCaption'));return figure;
         }
         const sets={
+          0:[[2,4,3,6,5,8,7,10],[10,8,9,6,7,4,5,2],[5,7,4,6,3,7,4,6]],
           1:[[1,3,2,5,3,7,5,9,7,11],[1,3,2,5,3,7,6],[4,7,3,6,4,7,3,5]],
           2:[[1,3,2,5,3,8,7,6],[1,3,2,5,3,7,4,1],[1,3,2,6,8,7.7,8.2,7.8,8.1]],
           3:[[99,100,101,100,99,98],[99,100,101,100,99,98],[101,100,99,96,97]],
@@ -2246,27 +2247,56 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         };
         const values=sets[chapter][round],generic=chapter===3;
         const price=v=>generic?v:m.base+v*m.unit;
-        const ohlc=values.map((v,i)=>{let o=i?values[i-1]:v-.5;if(generic&&round===2&&i===3)o=96.5;return {o:price(o),c:price(v),h:price(Math.max(o,v)+.25),l:price(Math.min(o,v)-.25)};});
-        const lo=Math.min(...ohlc.map(b=>b.l))- (generic?1:m.unit),hi=Math.max(...ohlc.map(b=>b.h))+(generic?1:m.unit),y=p=>195-(p-lo)/(hi-lo)*145;
-        let marks='';
-        for(const p of [lo,(lo+hi)/2,hi])marks+=`<path d="M25 ${y(p)}H440" stroke="var(--line)"/><text x="450" y="${y(p)+4}" fill="var(--muted)" font-size="11">$${p.toLocaleString('en-US',{minimumFractionDigits:generic?2:0,maximumFractionDigits:generic?2:0})}</text>`;
-        const candle=ohlc.map((b,i)=>{const x=45+i*(370/Math.max(1,ohlc.length-1)),color=b.c>=b.o?'--up':'--dn';return `<g><line x1="${x}" x2="${x}" y1="${y(b.h)}" y2="${y(b.l)}" stroke="var(${color})" stroke-width="2"/><rect x="${x-9}" y="${Math.min(y(b.o),y(b.c))}" width="18" height="${Math.max(2,Math.abs(y(b.c)-y(b.o)))}" fill="var(${color})"/></g>`;}).join('');
-        const rail=(value,label)=>`<path d="M25 ${y(value)}H435" stroke="var(--gold)" stroke-dasharray="5 4"/><text x="28" y="${y(value)-5}" fill="var(--gold)" font-size="11">${label}</text>`;
-        if(generic)marks+=rail(100,'Planned entry $100')+rail(98,'Planned stop $98');
-        if(chapter===2&&round===1)marks+=rail(price(2),'Previous swing low');
-        if(chapter===5&&round===0)marks+=rail(price(3),'Planned invalidation');
-        if(chapter===5&&round===2)marks+=rail(price(6),'Planned exit');
-        const title=generic?'RISK EXAMPLE · HYPOTHETICAL $100 UNIT':m.symbol+' · 5m · USD';
-        figure.innerHTML=`<svg class="missionChart" viewBox="0 0 540 245" role="img" aria-label="${title}. Synthetic candlesticks; open chart data for exact values."><text x="20" y="24" fill="var(--muted)" font-size="12">${title}</text>${marks}${candle}<text x="25" y="232" fill="var(--muted)" font-size="11">09:00</text><text x="365" y="232" fill="var(--muted)" font-size="11">${'09:'+String((ohlc.length-1)*5).padStart(2,'0')}</text></svg>`;
-        figure.append(el('figcaption',generic?'Hypothetical unit-price arithmetic in US dollars, not a gold or Bitcoin quote. Fees, slippage and instrument contract sizes are excluded.':'Synthetic teaching chart · prices in US dollars (USD) · simulated times and prices, not today’s market.','chartCaption'),el('p','Timeframe: 5 minutes (5m). Each candle represents 5 minutes of price movement. On a 1-hour (1h) chart, each candle represents 60 minutes. The timeframe describes each candle, not the entire chart.','chartCaption'));
-        const data=el('details',undefined,'chartData');data.append(el('summary','Chart data & candle key'),el('p','Teal: close at or above open. Pink: close below open. Each candle shows the open, high, low and close.'),el('p',ohlc.map((b,i)=>`${i+1}: O ${b.o.toFixed(2)} / H ${b.h.toFixed(2)} / L ${b.l.toFixed(2)} / C ${b.c.toFixed(2)}`).join(' · ')));figure.append(data);return figure;
+        // One deterministic minute series per setup. Every timeframe aggregates
+        // these same observations; switching never invents a different market.
+        const minutes=[];
+        values.forEach((v,i)=>{let start=i?values[i-1]:v-.5;if(generic&&round===2&&i===3)start=96.5;
+          for(let t=0;t<60;t++){const o=price(start+(v-start)*t/60),c=price(start+(v-start)*(t+1)/60),wick=generic?.02:m.unit*.02;minutes.push({o,c,h:Math.max(o,c)+wick,l:Math.min(o,c)-wick,time:i*60+t});}
+        });
+        const money=p=>'$'+p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+        const time=t=>`${String(9+Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;
+        const toolbar=el('div',undefined,'chartTools'),scroll=el('div',undefined,'chartScroll'),readout=el('p','','chartReadout'),status=el('small','','chartCaption');readout.setAttribute('aria-live','polite');
+        toolbar.append(el('span',generic?'Unit-price example':m.symbol));
+        let timeframe=5,fit=true;const controls=[];
+        function aggregate(size){const bars=[];for(let i=0;i<minutes.length;i+=size){const slice=minutes.slice(i,i+size);bars.push({o:slice[0].o,c:slice[slice.length-1].c,h:Math.max(...slice.map(b=>b.h)),l:Math.min(...slice.map(b=>b.l)),time:slice[0].time});}return bars;}
+        function paint(){
+          const ohlc=aggregate(timeframe),w=fit?600:Math.max(600,ohlc.length*16+110),right=w-95,step=(right-45)/ohlc.length;
+          const lo=Math.min(...ohlc.map(b=>b.l))-(generic?1:m.unit),hi=Math.max(...ohlc.map(b=>b.h))+(generic?1:m.unit),y=p=>215-(p-lo)/(hi-lo)*155;
+          let marks='';for(let i=0;i<6;i++){const p=lo+(hi-lo)*i/5;marks+=`<path d="M25 ${y(p)}H${right}" stroke="var(--line)"/><text x="${right+8}" y="${y(p)+4}" fill="var(--muted)" font-size="11">${money(p)}</text>`;}
+          const rail=(value,label)=>`<path d="M25 ${y(value)}H${right}" stroke="var(--gold)" stroke-dasharray="5 4"/><text x="${Math.max(28,right-240)}" y="${y(value)-5}" fill="var(--gold)" font-size="11">${label} ${money(value)}</text>`;
+          if(generic)marks+=rail(100,'Planned entry')+rail(98,'Planned stop');
+          if(chapter===1&&round===1)marks+=rail(price(3)-m.unit*.02,'Previous swing low');
+          if(chapter===2&&round===0)marks+=rail(price(3)-m.unit*.02,'Previous swing low');
+          if(chapter===2&&round===1)marks+=rail(price(2)-m.unit*.02,'Previous swing low');
+          if(chapter===5&&round===0)marks+=rail(price(3),'Planned invalidation');
+          if(chapter===5&&round===2)marks+=rail(price(6),'Planned exit');
+          const bars=ohlc.map((b,i)=>{const x=40+(i+.5)*step,color=b.c>=b.o?'--up':'--dn',bw=Math.min(20,step*.65);return `<g tabindex="0" role="button" data-bar="${i}" aria-label="${time(b.time)} Open ${money(b.o)}, high ${money(b.h)}, low ${money(b.l)}, close ${money(b.c)}"><title>${time(b.time)} · O ${money(b.o)} H ${money(b.h)} L ${money(b.l)} C ${money(b.c)}</title><rect x="${x-step/2}" y="45" width="${step}" height="178" fill="transparent"/><line x1="${x}" x2="${x}" y1="${y(b.h)}" y2="${y(b.l)}" stroke="var(${color})" stroke-width="2"/><rect x="${x-bw/2}" y="${Math.min(y(b.o),y(b.c))}" width="${bw}" height="${Math.max(2,Math.abs(y(b.c)-y(b.o)))}" fill="var(${color})"${i===ohlc.length-1?' stroke="var(--gold)" stroke-width="2"':''}/></g>`;}).join('');
+          let ticks='';const stride=Math.max(1,Math.ceil(ohlc.length/8));ohlc.forEach((b,i)=>{if(i%stride===0||i===ohlc.length-1)ticks+=`<text x="${40+(i+.5)*step}" y="250" fill="var(--muted)" font-size="11" text-anchor="middle">${time(b.time)}</text>`;});
+          scroll.innerHTML=`<svg class="missionChart" style="width:${fit?'100%':w+'px'};min-width:${fit?'0':w+'px'};height:270px" viewBox="0 0 ${w} 270" role="group" aria-label="${m.symbol} ${timeframe} minute synthetic chart">${marks}${bars}${ticks}</svg>`;
+          const show=i=>{const b=ohlc[i];readout.textContent=`${time(b.time)} · O ${money(b.o)} · H ${money(b.h)} · L ${money(b.l)} · C ${money(b.c)}`;};
+          scroll.onclick=e=>{const target=e.target.closest?.('[data-bar]');if(target)show(Number(target.dataset.bar));};
+          scroll.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){const target=e.target.closest?.('[data-bar]');if(target){e.preventDefault();show(Number(target.dataset.bar));}}};
+          show(ohlc.length-1);status.textContent=`${timeframe===60?'1 hour':timeframe+' minutes'} · ${ohlc.length} candles · Synthetic · Tap a candle for prices. Latest candle outlined in gold.`;
+          controls.forEach(([size,b])=>{b.setAttribute('aria-pressed',size===timeframe?'true':'false');b.className='chip'+(size===timeframe?' on':'');});scroll.scrollLeft=w;
+        }
+        for(const [size,label] of [[1,'1 minute'],[5,'5 minutes'],[10,'10 minutes'],[60,'1 hour']]){const b=action(label,()=>{timeframe=size;paint();});controls.push([size,b]);toolbar.append(b);}
+        const zoom=action('Explore candles',()=>{fit=!fit;zoom.textContent=fit?'Explore candles':'Fit full setup';paint();});toolbar.append(zoom);
+        figure.append(toolbar,scroll,readout,status);
+        if(generic)figure.append(el('small','Hypothetical $100 unit example; not a market quote.'));
+        paint();return figure;
+      }
+      function setupHelp(chapter,round){
+        const help=el('details',undefined,'chartHelp');help.append(el('summary','Explain this setup'));
+        const text=chapter===1&&round===1?'The candle outlined in gold is the latest candle. That is the red candle this question refers to. Other red candles earlier in the chart are normal; we are not saying the whole chart has only one. Compare the latest candle’s low with the dashed Previous swing low line. Has that earlier turning point actually broken?':chapter===1?'Look from left to right for turning points. An uptrend steps toward higher highs and higher lows; a downtrend steps lower. Consolidation repeatedly returns to the same zone. A red candle only means it closed below its own open; it does not by itself tell you the trend.':chapter===2?'A swing low is a local turning point where price stopped falling and turned upward. Compare the current price with the marked earlier low when one is shown. A pullback can contain several red candles without breaking the wider structure.':chapter===3?'The marked entry and stop are a hypothetical unit-price example. The distance between them is planned risk per unit. Open, high, low and close are shown when you tap a candle; the chart does not guarantee execution at the stop.':chapter===4?'Start with the setup conditions in the question. The chart illustrates the price structure, but movement alone does not tell you to enter. Ask what would confirm your idea and what would invalidate it.':chapter===5?'The gold line marks the planned decision level where one is relevant. Review what was known at that point, not what later price movement makes tempting in hindsight.':'Each bar is a simulated trade outcome in R, not a price candle. Add gains and losses, then review whether the decisions followed the plan.';
+        help.append(el('p',text),el('p','Timeframe controls combine the same minute-by-minute teaching data into different candles. A longer candle can hide the smaller moves inside it. Use Fit full setup to restore the whole view after exploring.'));
+        return help;
       }
       function skillMission(key,chapter){
         const m=MARKETS[key];
         const lessons={
           1:{intro:'A trend is a sequence of turning points. Read the whole structure rather than reacting to the latest candle.',questions:[
             ['Follow the swing highs and lows on the chart. What does this structure suggest?',['Uptrend','Downtrend','Consolidation','No evidence'],0,'Both the highs and lows are stepping upward. This describes structure; it does not guarantee the next move.'],
-            ['An uptrend prints one red candle, but the previous swing low still holds. What can you conclude?',['The trend definitely reversed','One candle is not enough to establish a reversal','Buy immediately'],1,'A candle is one observation. Compare it with the surrounding swing structure before naming a reversal.'],
+            ['Look at the latest candle outlined in gold and the dashed Previous swing low. The candle closes lower but stays above that earlier low. Does this alone confirm a downtrend?',['Yes — a downtrend is confirmed','No — the marked swing low still holds','Yes — every red candle reverses the trend'],1,'We mean the latest outlined candle, not the total number of red candles. Its low remains above the marked earlier swing low. That alone does not establish a downtrend.'],
             ['Highs and lows overlap repeatedly inside the same zone. What is the most defensible label?',['Consolidation','Guaranteed breakout','Strong downtrend'],0,'Repeated overlap without sustained directional progress suggests a range.']
           ]},
           2:{intro:'A pullback is a counter-move within a trend. Distinguish it from a break in structure, and leave room for uncertainty.',questions:[
@@ -2297,7 +2327,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         };
         const lesson=lessons[chapter];let round=0;
         function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / SKILL ${chapter+1}`,'eyebrow'),action('← My journey',showHome),el('h1',PATH[chapter]));window.scrollTo(0,0);}
-        function draw(){frame();home.append(el('p',lesson.intro),el('small',`Guided checkpoint ${round+1} of ${lesson.questions.length} · synthetic teaching examples`,'checkpointLabel'));const [prompt,answers,correct,why]=lesson.questions[round],card=el('section',undefined,'homeCard'),choices=el('div',undefined,'homeProfiles'),feedback=el('p','','missionFeedback');feedback.setAttribute('aria-live','polite');card.append(skillChart(m,chapter,round),el('h2',prompt));let resolved=false;answers.forEach((answer,i)=>choices.append(action(answer,()=>{if(resolved)return;if(i!==correct){feedback.textContent='Reconsider: '+why;return;}resolved=true;for(const b of choices.children)b.disabled=true;feedback.textContent='That’s it. '+why;card.append(action(round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →',()=>{round++;if(round<lesson.questions.length)draw();else finish();},true));})));card.append(choices,feedback);home.append(card);}
+        function draw(){frame();home.append(el('p',lesson.intro),el('small',`Guided checkpoint ${round+1} of ${lesson.questions.length} · synthetic teaching examples`,'checkpointLabel'));const [prompt,answers,correct,why]=lesson.questions[round],card=el('section',undefined,'homeCard'),choices=el('div',undefined,'homeProfiles'),feedback=el('p','','missionFeedback');feedback.setAttribute('aria-live','polite');card.append(skillChart(m,chapter,round),el('h2',prompt));let resolved=false;answers.forEach((answer,i)=>choices.append(action(answer,()=>{if(resolved)return;if(i!==correct){feedback.textContent='Reconsider: '+why;return;}resolved=true;for(const b of choices.children)b.disabled=true;feedback.textContent='That’s it. '+why;card.append(action(round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →',()=>{round++;if(round<lesson.questions.length)draw();else finish();},true));})));card.append(choices,feedback,setupHelp(chapter,round));home.append(card);}
         function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter))j.skills[key].push(chapter);saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
         draw();
       }
