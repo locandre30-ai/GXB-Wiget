@@ -57,11 +57,10 @@ Progress (XP, level, streak) persists in `localStorage` per browser.
 
 ## Development
 
-Edit the HTML files directly and open in a browser — no build step.
+Serve the files with the local preview command below. No build step is required.
 Test at desktop width and ≤980px, and check `prefers-reduced-motion`.
 See `CLAUDE.md` for full architecture and brand standards.
 
-## Application development
+## Arena V2 local workstation
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for the local branch, roadmap, and preview command. Run `node tools/preview.cjs` to serve the Arena at http://127.0.0.1:8766/practice.html.
-
+Run `node tools/preview.cjs` and open http://127.0.0.1:8766/arena.html. Use [LOCAL-APP.md](LOCAL-APP.md) for launch, migration, backup and rollback. See [ARENA-RELEASE-1.md](ARENA-RELEASE-1.md) for architecture, verification and the proposed Market Studio scope.

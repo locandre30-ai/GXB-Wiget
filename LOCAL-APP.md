@@ -1,20 +1,31 @@
-# Use GXB locally
+# Run GxB Trading Arena locally
 
-Double-click **Start GXB.cmd** in this folder, or use the GXB Arena desktop shortcut. The launcher starts the background server when needed and opens the application. Node.js must remain installed.
+Double-click **Start GXB.cmd**, or run `node tools/preview.cjs` from this folder and open http://127.0.0.1:8766/arena.html. Node.js is required. The server binds to loopback. Keep the same address, port and browser profile to access your existing data. Close training tabs running the audited baseline before first launch. If an earlier preview holds port 8766, stop that preview before starting this release.
 
-Address: http://127.0.0.1:8766/practice.html
+- **Arena** · `/arena.html` and `/`
+- **Legacy training compatibility** · `/practice.html`
+- **Separate Financial Command Center** · `/index.html`
 
-Choose an existing profile or create **King** on your first visit. After choosing a profile, later visits return to its dashboard. Start training with **Enter the Arena**. Complete all ten rounds and choose **See Session Results** to save a history entry. Use **My dashboard** to review it.
+A returning trader can select their profile or open the remembered Command Center. Use **Switch profile** to choose or create another profile. **Guest practice** is held in memory and ends on refresh or when the tab closes. Both training paths can open both Academy tracks and Free Practice. **Settings** holds the training path, drill mode, candle palette, assists and backup controls.
 
-Profiles and training records are saved in that browser's local storage. Use the same browser and this exact address each time. The Codex in-app browser and your default desktop browser can hold separate profiles. Clearing browser data removes the saved records. There is no cloud sign-in or cross-device synchronization yet.
+## First launch and source of truth
 
-After a computer restart, use the launcher again. It does not install a startup service. Closing the browser does not stop the local server. Files are served only to this computer; this is not a public deployment.
+Arena Release 1 uses the versioned snapshot in the browser’s `gxb_arena_v2_r1` localStorage key. The shell and the served compatibility entry point use that same snapshot. During migration, the profiles key `gxb_arena_profiles_v1` takes precedence because it owns the profile IDs and may already contain the device-era records. When the profiles key is absent, the device key `gxb_arena_v1` can supply one profile tagged as imported device history. Both original keys are retained verbatim.
 
-## Next integrations to assess after practice
+Migration validates profile ownership and session detail, tags records as legacy drill results, and gives unkeyed history entries stable identifiers within each profile. Recorded aggregate totals are preserved when individual records are absent. Historical scoring versions and outcomes remain as recorded. Missing dates, session details, and old unfinished scenarios are left unavailable. The new snapshot is committed in one write under an origin-scoped Web Lock, and stale concurrent writers get a visible error and must reload.
 
-- Profile export/import for backups and moving devices.
-- Secure accounts and durable session storage.
-- Historical market charts for realistic training and replay.
-- Optional Notion session export.
+Migration can only see keys on the same browser origin. A prior account on another browser, hostname, port, file URL, or hosted site has separate storage. Local profiles share access to this browser and have no password protection.
 
-Current exercises use synthetic charts; performance is simulated.
+## Backup and recovery
+
+**Settings → Export backup** downloads a JSON copy of every saved profile, including preferences, progress, session records and supported drafts. Keep the file somewhere you control. On a new browser, use **Restore a backup** on the entrance. Import adds missing profiles and skips identical snapshots. If a matching profile has diverged, ordinary import stops before writing. To restore matching profiles from a backup, check the restore option. The app downloads a copy of the current data before attempting replacement. Unrelated profiles remain in place.
+
+If storage reports a problem, read the message and reopen the page after resolving it. Guest practice remains available when persistence is blocked. A draft created in this release stores the exact seed for an unanswered round or the completed decisions at the last checkpoint. An interruption during a reveal resumes from the prior checkpoint. Academy resumes from completed lessons. An in-progress Academy checkpoint starts again when reopened.
+
+## Roll back locally
+
+1. Export the Release 1 backup and stop the running preview. Keep the backup and both legacy storage keys.
+2. From this repository, run `git switch codex/gxb-application` to return to the audited branch. To inspect the exact audited commit independently, use `git switch --detach 96575f9d8f42c38787cead65ea4e8a45be8bade5`.
+3. Start the baseline launcher and open `/practice.html` on the same origin. The baseline reads the original legacy keys as they stood before Arena. Progress made in Release 1 remains in its versioned snapshot and can be accessed again by switching back to `release/gxb-arena-v2-r1`.
+
+Avoid alternating between the baseline and Release 1 to record training. The baseline cannot read Release 1 records, and switching back to Release 1 will continue to use its saved snapshot.
