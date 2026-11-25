@@ -8,6 +8,14 @@ Double-click **Start GXB.cmd**, or run `node tools/preview.cjs` from this folder
 
 A returning trader can select their profile or open the remembered Command Center. Use **Switch profile** to choose or create another profile. **Guest practice** is held in memory and ends on refresh or when the tab closes. Both training paths can open both Academy tracks and Free Practice. **Settings** holds the training path, drill mode, candle palette, assists and backup controls.
 
+## Command Center workspace
+
+Hold the grip beside Command Center, Academy, Free Practice or Market Studio, then drag it onto the destination row. **Reorder navigation** opens keyboard-accessible move buttons. Each profile keeps its own order.
+
+Select Gold or Stocks and ETFs to switch the right-hand watchlist. The starter symbols are editable. Enter exchange-qualified symbols such as `NASDAQ:MSFT`. Each row opens a TradingView chart. **Load TradingView quotes** requests an embedded quote panel from TradingView for the current symbols. Exchange coverage and delay depend on the provider. The watchlist and checklist are usable offline.
+
+The **Market assistant** builds a local brief from the selected market, tracked symbols and available practice focus. You can copy it into an AI assistant. A future connected agent could add read-only, timestamped market context and ask for the trader’s setup, trigger and invalidation. This version generates the checklist and handoff locally.
+
 ## First launch and source of truth
 
 Arena Release 1 uses the versioned snapshot in the browser’s `gxb_arena_v2_r1` localStorage key. The shell and the served compatibility entry point use that same snapshot. During migration, the profiles key `gxb_arena_profiles_v1` takes precedence because it owns the profile IDs and may already contain the device-era records. When the profiles key is absent, the device key `gxb_arena_v1` can supply one profile tagged as imported device history. Both original keys are retained verbatim.

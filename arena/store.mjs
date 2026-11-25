@@ -1,3 +1,4 @@
+import { cleanOrder, cleanWatch } from './workspace.mjs';
 export const KEY = 'gxb_arena_v2_r1';
 export const LEGACY_BOOK = 'gxb_arena_profiles_v1';
 export const LEGACY_STATE = 'gxb_arena_v1';
@@ -81,6 +82,8 @@ function cleanProfile(id, raw) {
     onboarded: raw.onboarded === true,
     experience: raw.experience === 'experienced' || (raw.experience !== 'beginner' && state.mode === 'pro') ? 'experienced' : 'beginner',
     market: raw.market === 'stocks' ? 'stocks' : 'gold',
+    navOrder: cleanOrder(raw.navOrder),
+    watch: cleanWatch(raw.watch),
     ...(raw.origin === 'legacy-device' ? { origin: raw.origin } : {}),
     state
   };

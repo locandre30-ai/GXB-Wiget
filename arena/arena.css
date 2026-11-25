@@ -115,3 +115,54 @@ main > .panel + .panel { margin-top: 12px; }
 .studio-down { fill: #ff8295; stroke: #ff8295; }
 .studio-partial { opacity: .55; }
 .studio-paper { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 14px; }
+
+.layout { max-width: none; margin: 0; }
+.nav-items { display: flex; flex-direction: column; gap: 4px; }
+.nav-row { display: flex; align-items: center; min-width: 0; border-radius: 8px; }
+.nav-row a { flex: 1; min-width: 0; }
+.nav-grip { color: var(--muted); cursor: grab; touch-action: none; user-select: none; padding: 8px; }
+.nav-grip.dragging { color: var(--gold); cursor: grabbing; }
+.nav-row.nav-drop { outline: 2px solid var(--gold); outline-offset: -2px; }
+.nav-step { display: none; min-height: 34px; padding: 2px 6px; }
+.nav-editing .nav-step { display: inline-block; }
+.nav-editing .nav-grip { display: none; }
+.nav-customize { color: var(--muted); background: transparent; font-size: .8rem; margin-top: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.dashboard { display: grid; grid-template-columns: minmax(0, 1fr) clamp(265px, 22vw, 390px); gap: 16px; align-items: start; }
+.dashboard-main, .dashboard-rail { min-width: 0; }
+.dashboard-rail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding-top: 12px; }
+.dashboard .welcome { border-left: 2px solid var(--gold); padding-left: 12px; }
+.dashboard .metric { background: linear-gradient(145deg, #19283e, var(--surface) 68%); }
+.dashboard .market { position: relative; min-height: 102px; align-content: center; padding-right: 34px; background: linear-gradient(145deg, #22324a, var(--panel) 68%); }
+.dashboard .market:hover { background: #253750; }
+.market-arrow { position: absolute; top: 9px; right: 12px; color: var(--gold); font-size: 1.15rem; }
+.market-tickers { margin-top: 3px; color: var(--gold); font: .75rem/1.4 ui-monospace, monospace; overflow-wrap: anywhere; }
+.dashboard .workspace-columns { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.next-exercises h2 { font-size: 1.35rem; }
+.next-exercises .button { justify-content: flex-start; text-align: left; }
+.next-exercises .primary { min-height: 55px; }
+.watch-list { list-style: none; padding: 0; margin: 0 0 10px; }
+.watch-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); }
+.watch-symbol { display: grid; color: var(--ink); font-weight: 650; text-decoration: none; }
+.watch-symbol:hover { color: var(--gold); }
+.watch-symbol small { font-weight: 400; }
+.watch-list button { min-height: 36px; padding: 4px 12px; }
+.watch-form { display: flex; gap: 6px; }
+.watch-form input { min-width: 0; flex: 1; }
+.dashboard-rail > .panel { min-width: 0; overflow-wrap: anywhere; }
+.watch-panel > small { display: block; margin-top: 8px; }
+.quote-widget { width: 100%; height: 290px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
+.market-brief textarea { width: 100%; margin: 8px 0; font: inherit; padding: 8px; border: 1px solid var(--border); border-radius: 8px; color: var(--ink); background: var(--background); }
+@media (max-width: 1150px) {
+  .dashboard { grid-template-columns: 1fr; }
+  .dashboard-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 0; align-items: start; }
+}
+@media (max-width: 820px) {
+  .nav-items { flex-direction: row; flex-wrap: wrap; }
+  .nav-customize { margin-top: 0; min-height: 38px; }
+}
+@media (max-width: 660px) {
+  .dashboard .workspace-columns, .dashboard-rail { grid-template-columns: 1fr; }
+}
+.market-brief details { margin-bottom: 10px; }
+.market-brief details ul { padding-left: 18px; color: var(--muted); }

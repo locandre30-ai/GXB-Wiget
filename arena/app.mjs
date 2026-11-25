@@ -1,3 +1,5 @@
+import { setupNavigation } from './navigation.mjs';
+import { marketBrief, watchlist } from './market-watch.mjs';
 import { clearStudio, renderStudio } from './studio.mjs';
 import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs';
 import { LocalIdentity } from './identity.mjs';
@@ -309,6 +311,20 @@ function activeProfile() {
   return book.profiles[book.active];
 }
 
+async function updateProfile(update) {
+  const isGuest = guest;
+  const active = isGuest ? guestBook.active : store.book.active;
+  if (!isGuest) await store.flush();
+  const book = isGuest ? guestBook : store.book;
+  if (guest !== isGuest || book.active !== active || !book.profiles[active]) return false;
+  update(book.profiles[active]);
+  return isGuest || await store.save(book);
+}
+
+const syncNavigation = setupNavigation(navigation, () => activeProfile()?.navOrder, async order => {
+  if (!await updateProfile(profile => { profile.navOrder = order; })) syncNavigation();
+});
+
 function progressFor(state, market) {
   const done = state.journey.skills[market] ?? [];
   const first = Boolean(state.journey.completed[market]);
@@ -367,6 +383,10 @@ function recent(state, full = false) {
   return panel;
 }
 
+function tickerPreview(symbols) {
+  return symbols.slice(0, 4).map(symbol => symbol.split(':')[1]).join('  ·  ') || 'Add watchlist symbols';
+}
+
 function renderHome() {
   const profile = activeProfile();
   const state = profile.state;
@@ -386,30 +406,46 @@ function renderHome() {
   const marketGrid = node('div', undefined, 'two');
   markets.append(node('h2', 'Select your market'), marketGrid);
   for (const [id, detail] of [['gold', 'XAU/USD · Gold Academy available'], ['stocks', 'Equities & ETFs · Local replay in Market Studio']]) {
-    marketGrid.append(marketButton(marketNames[id], detail, profile.market === id, async () => {
-      const book = guest ? guestBook : store.book;
-      book.profiles[book.active].market = id;
-      if (guest || await store.save(book)) {
+    const market = marketButton(marketNames[id], detail, profile.market === id, async () => {
+      if (await updateProfile(selected => { selected.market = id; })) {
         render();
         workspace.querySelector('.market[aria-pressed="true"]')?.focus();
       }
-    }));
+    });
+    const arrow = node('span', '↗', 'market-arrow');
+    arrow.setAttribute('aria-hidden', 'true');
+    market.prepend(arrow);
+    const tickers = node('span', tickerPreview(profile.watch[id]), 'market-tickers');
+    tickers.dataset.market = id;
+    market.append(tickers);
+    marketGrid.append(market);
   }
-  const actions = node('section', undefined, 'panel stack');
+  const actions = node('section', undefined, 'panel stack next-exercises');
   const academyLink = link(progress.next < 0 ? 'Review the ' + marketNames[track] + ' Academy' :
     'Academy · ' + lessons[progress.next], '#academy/' + track);
-  const practiceLink = link(state.draft ? 'Resume practice draft' : 'Open Free Practice', '#practice', 'button primary');
+  const practiceLink = link(state.draft ? 'Resume practice draft' : 'Open Free Practice', '#practice');
   actions.append(node('h2', 'Next exercises'));
-  if (profile.experience === 'experienced' || state.draft) actions.append(practiceLink, academyLink);
-  else actions.append(academyLink, practiceLink);
+  const next = profile.experience === 'experienced' || state.draft ? [practiceLink, academyLink] : [academyLink, practiceLink];
+  next[0].classList.add('primary');
+  actions.append(...next);
   if (state.draft) actions.append(node('small', state.draft.session.results.length + ' of 10 decisions saved · ' + state.draft.focus));
   actions.append(link('Open Market Studio', '#studio'), link('Review recorded performance', '#performance'));
   const columns = node('div', undefined, 'two workspace-columns');
   columns.append(actions, recent(state));
-  const availability = node('section', undefined, 'panel availability');
-  availability.append(node('h2', 'Portfolio availability'),
-    node('p', 'A Stocks and ETFs portfolio and an independently configurable Gold portfolio are planned. Market Studio supports local candle replay.'));
-  workspace.append(heading, metrics, markets, columns, availability);
+  const training = node('div', undefined, 'dashboard-main');
+  training.append(heading, metrics, markets, columns);
+  const rail = node('aside', undefined, 'dashboard-rail');
+  const title = marketNames[profile.market];
+  rail.append(watchlist(profile, title, async (market, symbols) => {
+    if (!await updateProfile(selected => { selected.watch[market] = symbols; })) return false;
+    const tickers = marketGrid.querySelector('[data-market="' + market + '"]');
+    tickers.textContent = tickerPreview(symbols);
+    return true;
+  }),
+    marketBrief(profile, title, () => activeProfile().watch[profile.market]));
+  const dashboard = node('div', undefined, 'dashboard');
+  dashboard.append(training, rail);
+  workspace.append(dashboard);
 }
 
 function renderAcademy() {
@@ -461,6 +497,7 @@ function renderPerformance() {
 function render(focus = false) {
   const page = route();
   navigation.hidden = page === 'entrance' || (!guest && !store.book.active);
+  syncNavigation();
   for (const anchor of navigation.querySelectorAll('a')) {
     if (anchor.hash === '#' + page) anchor.setAttribute('aria-current', 'page');
     else anchor.removeAttribute('aria-current');
