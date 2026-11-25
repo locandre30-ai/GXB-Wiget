@@ -50,6 +50,11 @@
       overflow-x:hidden;
     }
 
+    body.loading .wrap { display: none }
+    #trainingStatus:not([hidden]) { border: 1px solid #a97758; padding: 10px; margin: 10px; color: #ffceb4 }
+    body.embedded { display: block; min-height: 0; height: auto; background: #101a2a }
+    body.embedded .home { padding: clamp(12px, 2vw, 24px); }
+    body.embedded #homeBack { position: static; margin: 10px 10px 0; }
     .wrap{ width:100%; padding: var(--pad); display:flex; justify-content:center; }
 
     .arena{
@@ -516,7 +521,9 @@
   </style>
 </head>
 
-<body>
+<body class="loading">
+  <p id="trainingStatus" role="status" hidden></p>
+  <noscript>Enable JavaScript to run Arena training.</noscript>
   <div class="wrap">
     <section class="arena" aria-label="GXB ICC Practice Arena">
 
@@ -635,6 +642,8 @@
   </div>
 
   <script>
+  (async () => {
+    const { connectTraining, cleanState } = await import("./arena/training.mjs");
     "use strict";
     /* ==========================================================
       ICC Practice Arena engine
@@ -797,72 +806,26 @@
     // Wrap a label in a tappable glossary term
     const T = (key, label) => `<span class="term" data-term="${key}">${label}</span>`;
 
-    // ---------- persistence (safe in sandboxed iframes) ----------
-    // Profiles: this widget lives on one device but gets handed around. Without
-    // an identity layer every person's reps merged into a single blob, silently
-    // corrupting per-skill accuracy, XP and streaks (it happened twice — see the
-    // vision doc). Each profile now owns its own state; switching swaps the blob
-    // wholesale. Nothing leaves the device and nothing is shared between profiles.
-    const STORE_KEY = "gxb_arena_v1";            // legacy pre-profiles blob
-    const PROF_KEY  = "gxb_arena_profiles_v1";   // { active, profiles:{ id:{name,icon,state} } }
-
-    function readRaw(key){
-      try{ return JSON.parse(localStorage.getItem(key)) || null; }catch(e){ return null; }
-    }
-    function writeRaw(key, val){
-      try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
-    }
-
-    // Normalize: a partial or older stored blob must never produce
-    // NaN/undefined in the UI, so every field gets a validated default.
-    const DEFAULTS = { xp:0, dayStreak:0, lastDay:"", sessions:0, bestCombo:0, rounds:0, correct:0 };
-    function normalize(raw){
-      const s = Object.assign({}, DEFAULTS, raw || {});
-      for(const k of ["xp","dayStreak","sessions","bestCombo","rounds","correct"]){
-        if(typeof s[k] !== "number" || !isFinite(s[k])) s[k] = DEFAULTS[k];
-      }
-      if(typeof s.lastDay !== "string") s.lastDay = "";
-      if(!s.candleTheme || !THEMES[s.candleTheme]) s.candleTheme = "classic";
-      if(s.assist === undefined) s.assist = true;
-      // Guided for brand-new users, Pro for anyone with sessions already logged
-      if(!s.mode) s.mode = s.sessions > 0 ? "pro" : "guided";
-      // Lifetime per-skill stats: { drill: {rounds, correct, rSum, rCount} }
-      if(!s.skills || typeof s.skills !== "object") s.skills = {};
-      return s;
-    }
-
-    const newProfileId = () => "p" + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
-
-    // Each profile is represented by one icon — the only profile UI on screen.
+    // Both entry points share the versioned local store. The embedded runner
+    // receives a route-scoped connection from the Arena shell.
+    const connection = await connectTraining();
+    const embedded = connection.view;
+    let BOOK = connection.book;
+    const normalize = raw => cleanState(raw ?? {});
+    const newProfileId = () => crypto.randomUUID();
     const PROFILE_ICONS = ["👑","🦁","⚡","🐺","🌙","🔥","💎","🐉","🦅","🌊","🎯","🧿"];
-
-    // First run migrates the old single-user blob into one profile rather than
-    // discarding it. That history is device-scoped, not person-scoped, so it is
-    // flagged and the UI says so instead of presenting it as one person's record.
-    function loadBook(){
-      const book = readRaw(PROF_KEY);
-      if(book && book.profiles && book.active && book.profiles[book.active]) return book;
-      const legacy = readRaw(STORE_KEY);
-      const id = newProfileId();
-      const fresh = {
-        active: id,
-        profiles: { [id]: {
-          name: legacy ? "King" : "Player 1",
-          icon: PROFILE_ICONS[0],
-          state: normalize(legacy)
-        }}
-      };
-      writeRaw(PROF_KEY, fresh);
-      return fresh;
+    if (!BOOK.active) {
+      BOOK.active = newProfileId();
+      BOOK.profiles[BOOK.active] = { name: "Player 1", icon: PROFILE_ICONS[0], state: normalize(null) };
     }
-
-    // If localStorage is blocked, BOOK still lives in memory for the session.
-    let BOOK = loadBook();
     const activeProfile = () => BOOK.profiles[BOOK.active];
     let ST = activeProfile().state;
+    function saveBook(){
+      return connection.save(BOOK);
+    }
     function saveState(s){
       if(s) activeProfile().state = s;
-      writeRaw(PROF_KEY, BOOK);
+      return saveBook();
     }
     let CANDLES = THEMES[ST.candleTheme];
 
@@ -2024,15 +1987,14 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         b.setAttribute("aria-pressed", em === active.icon ? "true" : "false");
         b.onclick = () => {
           activeProfile().icon = em;
-          writeRaw(PROF_KEY, BOOK);
+          saveBook();
           buildProfiles();
         };
         icons.appendChild(b);
       }
 
       $("profName").value = active.name;
-      // The last profile can't be deleted — there would be nothing to load.
-      $("profDel").disabled = Object.keys(BOOK.profiles).length < 2;
+      $("profDel").hidden = true;
     }
 
     function openProfMenu(on){
@@ -2068,7 +2030,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       if(id === BOOK.active || !BOOK.profiles[id]) return;
       saveState(ST);            // bank the outgoing profile first
       BOOK.active = id;
-      writeRaw(PROF_KEY, BOOK);
+      saveBook();
       applyProfile();
     }
 
@@ -2091,7 +2053,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       const id = newProfileId();
       BOOK.profiles[id] = { name: uniqueProfileName(), icon: unusedIcon(), state: normalize(null) };
       BOOK.active = id;
-      writeRaw(PROF_KEY, BOOK);
+      saveBook();
       applyProfile();
       openProfMenu(true);
       $("profName").focus();
@@ -2102,22 +2064,10 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       const v = $("profName").value.trim().slice(0,24);
       if(!v){ $("profName").value = activeProfile().name; return; }
       activeProfile().name = v;
-      writeRaw(PROF_KEY, BOOK);
+      saveBook();
       buildProfiles();
     };
     $("profName").addEventListener("keydown", e => { if(e.key === "Enter") $("profSave").onclick(); });
-
-    $("profDel").onclick = () => { if(!$("profDel").disabled) $("profConfirm").hidden = false; };
-    $("profDelNo").onclick = () => { $("profConfirm").hidden = true; };
-    $("profDelYes").onclick = () => {
-      if(answering) return;
-      if(Object.keys(BOOK.profiles).length < 2) return;
-      delete BOOK.profiles[BOOK.active];
-      BOOK.active = Object.keys(BOOK.profiles)[0];
-      writeRaw(PROF_KEY, BOOK);
-      openProfMenu(false);
-      applyProfile();
-    };
 
     // ---------- init ----------
     buildChips();
@@ -2128,7 +2078,19 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     sizeCanvases();
     newSession();
 
+    if (embedded) {
+      document.body.classList.add("embedded");
+      $("profBtn").hidden = true;
+    }
     initDashboard();
+    if (embedded) {
+      const contents = [...document.body.children].filter(element => element.matches(".wrap, .home, #homeBack, #trainingStatus"));
+      const fitFrame = () => connection.resize(Math.max(160, ...contents.filter(element => !element.hidden)
+        .map(element => element.getBoundingClientRect().bottom + window.scrollY)) + 12);
+      const observer = new ResizeObserver(fitFrame);
+      contents.forEach(element => observer.observe(element));
+      fitFrame();
+    }
 
     // Personal home: local profiles, never authentication or cloud accounts.
     function initDashboard(){
@@ -2349,8 +2311,8 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         home.replaceChildren();
         const nav=el('nav'),tools=el('div',undefined,'homeTools');tools.append(iconAction('⚔','Enter the Arena →',train),iconAction(activeProfile().icon||'👤','Switch / create profile',profiles));nav.append(el('span','GXB / MY ARENA','eyebrow'),tools);home.append(nav);
         home.append(el('h1',`Welcome back, ${activeProfile().name}.`),el('p','Build your eye. Find your rhythm. Take the next step.'),journeyPanel());
-        let persistent=true;try{const k='gxb_storage_check';localStorage.setItem(k,'1');localStorage.removeItem(k);}catch{persistent=false;}
-        home.append(el('p',persistent?'Saved in this browser · Synthetic training results':'Storage is unavailable. Progress lasts only while this page stays open.','homeStatus'));
+        const persistent=typeof connection === 'undefined' || !connection.problem;
+        home.append(el('p',persistent?'Saved in this browser · Synthetic training results':'Storage is unavailable. See the storage message before continuing.','homeStatus'));
         const grid=el('div',undefined,'homeGrid');
         const skills=Object.entries(ST.skills||{}), reps=skills.reduce((n,[,s])=>n+s.rounds,0), correct=skills.reduce((n,[,s])=>n+s.correct,0);
         for(const [label,value] of [['Completed sessions',ST.sessions],['Practice accuracy',reps?Math.round(100*correct/reps)+'%':'—'],['Day streak',ST.dayStreak],['Experience',ST.xp+' XP']]){const c=el('div',undefined,'homeCard');c.append(el('small',label),el('strong',String(value)));grid.append(c);}home.append(grid);
@@ -2367,8 +2329,18 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       back.onclick=()=>{if(answering)return;showHome();};
       // A visitor's first experience is identity, not an anonymous running drill.
       arena.hidden=true;
-      if(activeProfile().onboarded) showHome(); else profiles();
+      if(typeof embedded !== 'undefined' && embedded === 'practice'){
+        train();
+        back.textContent = '← Command Center';
+        back.onclick = () => { if(!answering) connection.exit('home'); };
+      } else if(activeProfile().onboarded) showHome(); else profiles();
     }
+    document.body.classList.remove("loading");
+  })().catch(error => {
+    document.getElementById("trainingStatus").hidden = false;
+    document.getElementById("trainingStatus").textContent = "Training could not start: " + error.message +
+      " Open Arena through the local launcher.";
+  });
   </script>
 </body>
 </html>

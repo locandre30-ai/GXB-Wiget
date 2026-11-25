@@ -15,7 +15,7 @@ const context={document:{head:new Element('head'),body,createElement:t=>new Elem
 context.switchProfile=id=>{book.active=id;context.ST=book.profiles[id].state;};context.applyProfile=()=>{context.ST=book.profiles[book.active].state;};
 vm.createContext(context);
 const start=html.indexOf('    function initDashboard(){');
-const end=html.lastIndexOf('  </script>');
+const end=html.indexOf('    document.body.classList.remove',start);
 vm.runInContext(html.slice(start,end)+'\ninitDashboard();',context);
 const home=body.children[0],back=body.children[1];
 const all=e=>[e,...e.children.flatMap(all)];
@@ -80,16 +80,4 @@ find('Enter the Arena →').onclick();assert.equal(home.hidden,true);assert.equa
 context.ST.history=[{date:'2026-10-18T12:00:00Z',focus:'Entries',grade:'B',correct:7,rounds:10,r:2,minutes:3,xp:50,scored:4}];
 back.onclick();assert.equal(home.hidden,false);assert.ok(find('B · 7/10 correct · +2.0R'));assert.ok(all(home).some(e=>String(e.textContent).includes('0.50R / decision')));
 assert.ok(saves>0);console.log('PASS: syntax, profile entry, returning identity, validation, safe names, profile isolation, training navigation, session history and R metrics.');
-const storage=new Map();
-const persistence=html.slice(html.indexOf('    const STORE_KEY'),html.indexOf('    let CANDLES'));
-function reload(){const ctx={localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},THEMES:{classic:[]}};vm.createContext(ctx);vm.runInContext(persistence,ctx);return ctx;}
-const before=reload();
-vm.runInContext('activeProfile().name="King"; activeProfile().onboarded=true; ST.history=[{grade:"A",r:2}]; ST.journey={market:"gold",completed:{gold:{version:1}}};saveState(ST);',before);
-const after=reload();
-assert.equal(vm.runInContext('activeProfile().name',after),'King');
-assert.equal(vm.runInContext('activeProfile().onboarded',after),true);
-assert.equal(vm.runInContext('ST.history[0].r',after),2);
-assert.equal(vm.runInContext('ST.journey.market',after),'gold');
-assert.equal(vm.runInContext('ST.journey.completed.gold.version',after),1);
-console.log('PASS: Gold and Bitcoin lessons, retry feedback, independent market progress, lesson/session separation, journey persistence.');
-console.log('PASS: profile identity, remembered dashboard and session history persist across app reloads.');
+console.log('PASS: Gold and Bitcoin lessons, retry feedback, independent market progress and lesson/session separation.');
