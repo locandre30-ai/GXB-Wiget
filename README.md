@@ -64,3 +64,5 @@ See `CLAUDE.md` for full architecture and brand standards.
 ## Arena V2 local workstation
 
 Run `node tools/preview.cjs` and open http://127.0.0.1:8766/arena.html. Use [LOCAL-APP.md](LOCAL-APP.md) for launch, migration, backup and rollback. See [ARENA-RELEASE-1.md](ARENA-RELEASE-1.md) for architecture, verification and the proposed Market Studio scope.
+
+See [MARKET-STUDIO.md](MARKET-STUDIO.md) for Release 2 replay, paper execution and checkpoint instructions.

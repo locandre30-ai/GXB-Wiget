@@ -103,3 +103,15 @@ main > .panel + .panel { margin-top: 12px; }
 @media (max-width: 480px) {
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.studio-output:not(:empty) { margin-top: 12px; }
+.studio-chart .actions { align-items: end; }
+.studio-clock { color: var(--gold); }
+.studio-plot { overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--background); }
+.studio-plot svg { display: block; width: 100%; min-width: 420px; }
+.studio-grid { stroke: var(--border); }
+.studio-tick { fill: var(--muted); font: 12px system-ui; }
+.studio-up { fill: #44d4a6; stroke: #44d4a6; }
+.studio-down { fill: #ff8295; stroke: #ff8295; }
+.studio-partial { opacity: .55; }
+.studio-paper { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 14px; }

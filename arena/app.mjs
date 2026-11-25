@@ -1,10 +1,11 @@
+import { clearStudio, renderStudio } from './studio.mjs';
 import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs';
 import { LocalIdentity } from './identity.mjs';
 
 const workspace = document.querySelector('#workspace');
 const navigation = document.querySelector('#navigation');
 const storageStatus = document.querySelector('#storage');
-const routes = new Set(['entrance', 'home', 'academy', 'practice', 'performance', 'settings']);
+const routes = new Set(['entrance', 'home', 'academy', 'practice', 'studio', 'performance', 'settings']);
 
 let guest = false;
 let guestBook;
@@ -137,8 +138,10 @@ function renderEntrance() {
     event.preventDefault();
     submit.disabled = true;
     try {
+      const previousOwner = store.book.active;
       const saved = creating ? await identity.create(input.value, experience) : await identity.select(choice, experience);
       if (saved) {
+        if (guest || previousOwner !== store.book.active) clearStudio();
         guest = false;
         choice = store.book.active;
         creating = false;
@@ -159,6 +162,7 @@ function renderEntrance() {
   }, 'quiet'));
   options.append(action('Guest practice', () => {
     if (guest && guestBook) { go('practice'); return; }
+    clearStudio();
     guest = true;
     guestBook = { active: 'guest', profiles: { guest: newProfile('Guest', experience) } };
     go('practice');
@@ -381,7 +385,7 @@ function renderHome() {
   const markets = node('section', undefined, 'panel');
   const marketGrid = node('div', undefined, 'two');
   markets.append(node('h2', 'Select your market'), marketGrid);
-  for (const [id, detail] of [['gold', 'XAU/USD · Gold Academy available'], ['stocks', 'Equities & ETFs · Stock-specific simulation planned']]) {
+  for (const [id, detail] of [['gold', 'XAU/USD · Gold Academy available'], ['stocks', 'Equities & ETFs · Local replay in Market Studio']]) {
     marketGrid.append(marketButton(marketNames[id], detail, profile.market === id, async () => {
       const book = guest ? guestBook : store.book;
       book.profiles[book.active].market = id;
@@ -399,12 +403,12 @@ function renderHome() {
   if (profile.experience === 'experienced' || state.draft) actions.append(practiceLink, academyLink);
   else actions.append(academyLink, practiceLink);
   if (state.draft) actions.append(node('small', state.draft.session.results.length + ' of 10 decisions saved · ' + state.draft.focus));
-  actions.append(link('Review recorded performance', '#performance'));
+  actions.append(link('Open Market Studio', '#studio'), link('Review recorded performance', '#performance'));
   const columns = node('div', undefined, 'two workspace-columns');
   columns.append(actions, recent(state));
   const availability = node('section', undefined, 'panel availability');
-  availability.append(node('h2', 'Market Studio and portfolios'),
-    node('p', 'Market Studio replay, a Stocks and ETFs portfolio, and an independent Gold portfolio are planned. Free Practice runs synthetic drills today.'));
+  availability.append(node('h2', 'Portfolio availability'),
+    node('p', 'A Stocks and ETFs portfolio and an independently configurable Gold portfolio are planned. Market Studio supports local candle replay.'));
   workspace.append(heading, metrics, markets, columns, availability);
 }
 
@@ -430,7 +434,7 @@ function renderPractice() {
   const panel = node('section', undefined, 'panel practice-note');
   panel.append(node('p', 'Five synthetic chart drills · 10 rounds · Guided or Pro · Legacy drill scoring'));
   if (state.draft) panel.append(node('small', 'Resuming saved draft · ' + state.draft.session.results.length + ' of 10 decisions recorded.'));
-  else panel.append(node('small', 'Your session saves as you go. Stock-specific replay is planned for Market Studio.'));
+  else panel.append(node('small', 'Your session saves as you go. Open Market Studio for local historical replay.'));
   workspace.append(panel);
   renderTraining('practice');
 }
@@ -477,6 +481,7 @@ function render(focus = false) {
   if (page === 'home') renderHome();
   if (page === 'academy') renderAcademy();
   if (page === 'practice') renderPractice();
+  if (page === 'studio') renderStudio(workspace, activeProfile().market, guest ? 'guest' : store.book.active);
   if (page === 'performance') renderPerformance();
   status();
   if (focus) workspace.focus();
