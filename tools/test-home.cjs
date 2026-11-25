@@ -13,6 +13,7 @@ const book={active:'king',profiles:{king:{name:'King',icon:'👑',state:{session
 const context={document:{head:new Element('head'),body,createElement:t=>new Element(t),querySelector:()=>arena},window:{scrollTo(){}},localStorage:{setItem(){},removeItem(){}},BOOK:book,ST:book.profiles.king.state,answering:false,
   activeProfile:()=>book.profiles[book.active],openProfMenu(){},saveState(){saves++;},newProfileId:()=> 'new',unusedIcon:()=> '🌊',normalize:()=>({sessions:0,xp:0,dayStreak:0,skills:{}}),sizeCanvases(){},newSession(){sessions++;}};
 context.switchProfile=id=>{book.active=id;context.ST=book.profiles[id].state;};context.applyProfile=()=>{context.ST=book.profiles[book.active].state;};
+Object.assign(context, require('../arena/learning.mjs'));
 vm.createContext(context);
 const start=html.indexOf('    function initDashboard(){');
 const end=html.indexOf('    document.body.classList.remove',start);
@@ -28,7 +29,7 @@ assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Bitcoin coin')));
 assert.equal(find('Edit name / icon'),undefined);
 find('Explore Gold →').onclick();assert.equal(context.ST.journey.market,'gold');
 find('Begin first mission →').onclick();assert.ok(find('What is day trading?'));
-find('Show me the chart →').onclick();find('Downtrend').onclick();assert.ok(find('Complete mission →')===undefined);
+find('Show me the chart →').onclick();find('Downtrend').onclick();assert.ok(find('Complete mission →')===undefined);assert.ok(find('Quick follow-up'));find('Several swing highs and lows').onclick();
 find('Uptrend').onclick();find('Next chart →').onclick();find('Downtrend').onclick();find('Next chart →').onclick();find('Consolidation').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.gold);assert.equal(context.ST.sessions,4);
 const chapters=[
@@ -69,7 +70,8 @@ assert.equal(context.ST.sessions,4);assert.ok(find('Continue in Free Practice �
 find('Return to my journey →').onclick();find('Change market').onclick();find('Explore Bitcoin →').onclick();
 assert.equal(context.ST.journey.market,'bitcoin');assert.equal(context.ST.journey.completed.bitcoin,undefined);assert.ok(context.ST.journey.completed.gold);
 find('Begin first mission →').onclick();find('Show me the chart →').onclick();
-find('Uptrend').onclick();find('Next chart →').onclick();find('Downtrend').onclick();find('Next chart →').onclick();find('Consolidation').onclick();find('Complete mission →').onclick();
+assert.ok(find('BTC trades around the clock. On this weekend example, what do progressively lower rallies and lows show?'));
+find('Lower highs and lower lows').onclick();find('Next chart →').onclick();find('Higher highs and higher lows').onclick();find('Next chart →').onclick();find('A range with no confirmed break').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.bitcoin);find('Return to my journey →').onclick();
 assert.ok(find('Completed sessions'));assert.equal(book.profiles.king.state.sessions,4);
 find('Switch / create profile').onclick();

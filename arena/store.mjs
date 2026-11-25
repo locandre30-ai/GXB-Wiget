@@ -1,3 +1,4 @@
+import { cleanLearning } from './learning.mjs';
 import { cleanOrder, cleanWatch } from './workspace.mjs';
 export const KEY = 'gxb_arena_v2_r1';
 export const LEGACY_BOOK = 'gxb_arena_profiles_v1';
@@ -25,6 +26,7 @@ export function cleanState(raw = {}, owner = 'local') {
   state.mode = ['guided', 'pro'].includes(raw.mode) ? raw.mode : state.sessions ? 'pro' : 'guided';
   state.candleTheme = PALETTES.includes(raw.candleTheme) ? raw.candleTheme : 'classic';
   state.assist = raw.assist !== false;
+  state.learning = cleanLearning(raw.learning);
   state.skills = {};
   for (const [name, skill] of Object.entries(raw.skills ?? {})) {
     if (!DRILLS.includes(name) || !object(skill)) continue;

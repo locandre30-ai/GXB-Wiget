@@ -74,9 +74,9 @@ function downloadCheckpoint(replay) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function paperPanel(replay, repaint) {
+function paperPanel(replay, repaint, observe) {
   const card = element('section', undefined, 'stack studio-paper');
-  card.append(element('h2', 'Paper execution'), element('small', 'One simulated position per replay. Entries and manual exits use the next revealed open. Stop wins an ambiguous stop/target bar.'));
+  card.append(element('h2', 'Paper execution'), element('small', 'One simulated position per replay. Entries and manual exits use the next revealed open. Stop wins an ambiguous stop/target bar. New simulated decisions inform your Academy learning plan.'));
   const form = element('form', undefined, 'stack');
   const fields = element('div', undefined, 'two');
   const side = options([['long', 'Long'], ['short', 'Short']]);
@@ -111,6 +111,7 @@ function paperPanel(replay, repaint) {
   const run = command => {
     try {
       replay.order(command);
+      observe(command);
       repaint();
     } catch (error) {
       status.textContent = error.message;
@@ -146,7 +147,7 @@ function paperPanel(replay, repaint) {
   };
 }
 
-function replayPanel(host, replay) {
+function replayPanel(host, replay, observe) {
   const snapshot = replay.snapshot();
   const panel = element('section', undefined, 'panel stack studio-chart');
   const heading = element('h2', snapshot.metadata.market === 'gold' ? labelMarket.gold : snapshot.metadata.symbol + ' · ' + labelMarket.stocks);
@@ -164,7 +165,7 @@ function replayPanel(host, replay) {
   const stats = element('p');
   const feedback = element('p');
   feedback.setAttribute('role', 'status');
-  const paper = paperPanel(replay, () => paint());
+  const paper = paperPanel(replay, () => paint(), observe);
   const paint = () => {
     const state = replay.snapshot();
     const { open, high, low, close, volume } = state.latest;
@@ -192,7 +193,7 @@ function replayPanel(host, replay) {
   host.replaceChildren(panel);
 }
 
-export function renderStudio(workspace, preferredMarket, owner) {
+export function renderStudio(workspace, preferredMarket, owner, observe) {
   const intro = element('section', undefined, 'panel stack');
   intro.append(element('h2', 'Load historical candles'),
     element('p', 'Replay a local OHLCV file one candle at a time. The chart and SMA use revealed data. Paper orders fill against the replay clock and produce separate Studio results.'),
@@ -230,7 +231,7 @@ export function renderStudio(workspace, preferredMarket, owner) {
   status.setAttribute('role', 'status');
   form.append(details, field('Candle CSV', csv), field('Checkpoint (optional)', backup), load, status);
   const output = element('div', undefined, 'studio-output');
-  if (current?.owner === owner) replayPanel(output, current.replay);
+  if (current?.owner === owner) replayPanel(output, current.replay, observe);
   intro.append(form);
   workspace.append(intro, output);
   form.onsubmit = async event => {
@@ -248,7 +249,7 @@ export function renderStudio(workspace, preferredMarket, owner) {
       const replay = createReplay(dataset, id, restored);
       if (!form.isConnected) return;
       current = { owner, replay };
-      replayPanel(output, replay);
+      replayPanel(output, replay, observe);
       status.textContent = restored ? 'Checkpoint restored.' : 'Replay loaded.';
     } catch (error) {
       status.textContent = error.message;

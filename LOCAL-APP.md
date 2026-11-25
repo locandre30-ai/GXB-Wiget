@@ -16,6 +16,12 @@ Select Gold or Stocks and ETFs to switch the right-hand watchlist. The starter s
 
 The **Market assistant** builds a local brief from the selected market, tracked symbols and available practice focus. You can copy it into an AI assistant. A future connected agent could add read-only, timestamped market context and ask for the trader’s setup, trigger and invalidation. This version generates the checklist and handoff locally.
 
+## Your Academy learning plan
+
+Choose Gold or Bitcoin and take the optional three-question assessment. Your stated goal, chart experience and focus set a starting point. Each track has its own checkpoints. A missed answer prompts an interactive follow-up and a chance to retry. The next recommendation can change based on first answers, simulated Free Practice results and new paper decisions made in Market Studio.
+
+Academy keeps these signals with the local profile and includes them in backups. Studio supplies action counts for paper entries, exits and cancellations. It does not re-count actions replayed from a checkpoint. The assessment and suggestions are rule-based. Use **Build an AI tutoring prompt** to carry the selected track, learning goal and recommended skill into the assistant you choose. Brokerage connections, AI-generated tutoring and live market data for Academy lessons remain future integrations.
+
 ## First launch and source of truth
 
 Arena Release 1 uses the versioned snapshot in the browser’s `gxb_arena_v2_r1` localStorage key. The shell and the served compatibility entry point use that same snapshot. During migration, the profiles key `gxb_arena_profiles_v1` takes precedence because it owns the profile IDs and may already contain the device-era records. When the profiles key is absent, the device key `gxb_arena_v1` can supply one profile tagged as imported device history. Both original keys are retained verbatim.

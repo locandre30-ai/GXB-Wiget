@@ -1,3 +1,4 @@
+import { recordPaperDecision } from './learning.mjs';
 import { setupNavigation } from './navigation.mjs';
 import { marketBrief, watchlist } from './market-watch.mjs';
 import { clearStudio, renderStudio } from './studio.mjs';
@@ -452,7 +453,7 @@ function renderAcademy() {
   const state = activeProfile().state;
   const market = location.hash.split('/')[1];
   const choices = node('section', undefined, 'panel');
-  choices.append(node('p', 'Seven guided lessons per track, from reading price to reviewing a session.'));
+  choices.append(node('p', 'Choose a market to start seven guided lessons and an optional assessment. Your Academy answers and simulated Free Practice shape your next exercise.'));
   const list = node('div', undefined, 'two');
   for (const id of ['gold', 'bitcoin']) {
     const info = progressFor(state, id);
@@ -518,7 +519,8 @@ function render(focus = false) {
   if (page === 'home') renderHome();
   if (page === 'academy') renderAcademy();
   if (page === 'practice') renderPractice();
-  if (page === 'studio') renderStudio(workspace, activeProfile().market, guest ? 'guest' : store.book.active);
+  if (page === 'studio') renderStudio(workspace, activeProfile().market, guest ? 'guest' : store.book.active,
+    command => updateProfile(profile => recordPaperDecision(profile.state, command)));
   if (page === 'performance') renderPerformance();
   status();
   if (focus) workspace.focus();

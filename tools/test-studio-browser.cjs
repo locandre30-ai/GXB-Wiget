@@ -78,6 +78,9 @@ async function run() {
     assert.equal(await page.getByLabel('Instrument symbol').inputValue(), 'XAU/USD');
     await load(original);
     await page.getByRole('heading', { name: 'XAU/USD Gold' }).waitFor();
+    await page.getByRole('link', { name: 'Academy', exact: true }).click();
+    await page.getByRole('link', { name: /^Gold/ }).click();
+    await page.frameLocator('iframe').getByText(/2 paper entries queued/).waitFor();
     await page.getByRole('link', { name: 'Performance', exact: true }).click();
     await page.getByText('0 with saved details', { exact: true }).waitFor();
     assert.deepEqual(errors, []);
