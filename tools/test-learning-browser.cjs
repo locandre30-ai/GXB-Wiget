@@ -12,6 +12,14 @@ async function run() {
     await page.getByLabel('Local profile name').fill('Learning Tester');
     await page.getByRole('button', { name: 'Create profile and enter' }).click();
     await page.getByRole('link', { name: 'Academy', exact: true }).click();
+    await page.getByLabel('Market check-in').selectOption('Fear of missing out');
+    await page.getByRole('button', { name: 'Save check-in' }).click();
+    await page.getByText('Latest check-in · Fear of missing out').waitFor();
+    await page.getByLabel('Research market').selectOption('bitcoin');
+    await page.getByLabel('Source title').fill('Test source');
+    await page.getByLabel('Public HTTPS link').fill('https://example.com/market-research');
+    await page.getByRole('button', { name: 'Save research source' }).click();
+    await page.getByRole('link', { name: 'Test source' }).waitFor();
     await page.getByRole('link', { name: /^Bitcoin/ }).click();
     const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
     await frame.getByText('Take a short learning assessment', { exact: true }).click();
@@ -23,6 +31,8 @@ async function run() {
     const prompt = await frame.getByLabel('Academy tutoring prompt').inputValue();
     assert.match(prompt, /one question at a time/);
     assert.match(prompt, /Study longer-term entries/);
+    assert.match(prompt, /Fear of missing out/);
+    assert.match(prompt, /example\.com\/market-research/);
     await frame.getByRole('button', { name: 'Recommended: Define risk' }).click();
     await frame.getByRole('heading', { name: /practice BTC long/ }).waitFor();
     await frame.getByRole('button', { name: '$50', exact: true }).click();
@@ -31,6 +41,9 @@ async function run() {
     await frame.getByText(/Use that idea to try/).waitFor();
     await frame.getByRole('button', { name: '$500', exact: true }).click();
     await frame.getByText('Apply this to a longer holding period').waitFor();
+    await frame.getByText('Practice a decision based on your check-in').click();
+    await frame.getByRole('button', { name: 'Wait for the trigger or skip the trade' }).click();
+    await frame.getByText('That keeps the decision tied to your plan.').waitFor();
     await frame.getByRole('button', { name: 'Next checkpoint →' }).click();
     await frame.getByRole('button', { name: '0.05 BTC', exact: true }).click();
     await page.waitForFunction(() => {

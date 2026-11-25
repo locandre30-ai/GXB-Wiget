@@ -22,6 +22,10 @@ Choose Gold or Bitcoin and take the optional three-question assessment. Your sta
 
 Academy keeps these signals with the local profile and includes them in backups. Studio supplies action counts for paper entries, exits and cancellations. It does not re-count actions replayed from a checkpoint. The assessment and suggestions are rule-based. Use **Build an AI tutoring prompt** to carry the selected track, learning goal and recommended skill into the assistant you choose. Brokerage connections, AI-generated tutoring and live market data for Academy lessons remain future integrations.
 
+On the Academy selection screen, **Learning activity** shows the current profile’s latest observations. Arena keeps up to 120 recent timestamped events per profile, including answers and retries, settled Free Practice choices, new Studio paper actions, optional check-ins and manually saved research links. Existing progress and aggregate counts are preserved. Use **Save check-in** to add your own description. A checkpoint can then add a decision question about that particular pressure. Arena does not infer feelings from trade outcomes.
+
+**Save market research** keeps the public HTTPS source, market and time you saved it. Arena does not fetch or verify the source. The AI tutoring prompt previews recent learning evidence, the latest check-in and recent links for the selected market. It is shared only if you copy it and provide it to an assistant. Activity is included in profile backups. Local profiles are for use within this browser, with the same access boundaries as other Arena data.
+
 ## First launch and source of truth
 
 Arena Release 1 uses the versioned snapshot in the browser’s `gxb_arena_v2_r1` localStorage key. The shell and the served compatibility entry point use that same snapshot. During migration, the profiles key `gxb_arena_profiles_v1` takes precedence because it owns the profile IDs and may already contain the device-era records. When the profiles key is absent, the device key `gxb_arena_v1` can supply one profile tagged as imported device history. Both original keys are retained verbatim.

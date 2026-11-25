@@ -1,3 +1,4 @@
+import { cleanActivity, pressureQuestion, recordActivity, tutoringEvidence } from '../arena/activity.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cleanLearning, learningFocus, recordCheckpoint, recordPaperDecision } from '../arena/learning.mjs';
@@ -22,7 +23,7 @@ test('invalid assessment and impossible first-attempt counts are ignored', () =>
   const raw = { assessment: { goal: 'arbitrary' }, evidence: { gold: {
     2: { attempts: 3, firstCorrect: 4 }, 4: { attempts: 2, firstCorrect: 1 }
   } } };
-  assert.deepEqual(cleanLearning(raw), { paper: {}, assessment: null, evidence: {
+  assert.deepEqual(cleanLearning(raw), { activity: [], paper: {}, assessment: null, evidence: {
     gold: { 4: { attempts: 2, firstCorrect: 1 } }, bitcoin: {}
   } });
 });
@@ -35,4 +36,19 @@ test('paper actions inform the learning plan without claiming live trade behavio
   recordPaperDecision(state, { type: 'exit' });
   assert.equal(learningFocus(state, 'gold').chapter, 5);
   assert.deepEqual(cleanState(state).learning.paper, { long: 2, short: 1, exit: 2 });
+});
+
+test('observed activity stays bounded, validated and scoped to a learner and track', () => {
+  const state = cleanState();
+  const other = cleanState();
+  assert.equal(recordActivity(state.learning, { type: 'research', market: 'gold', title: 'Unsafe', url: 'javascript:alert(1)' }), false);
+  for (let count = 0; count < 121; count++) recordActivity(state.learning, { type: 'check-in', feeling: 'Calm' });
+  assert.equal(state.learning.activity.length, 120);
+  recordActivity(state.learning, { type: 'check-in', feeling: 'Fear of loss' });
+  assert.match(pressureQuestion(state.learning.activity)[0], /might lose/);
+  assert.equal(pressureQuestion(other.learning.activity), null);
+  recordActivity(state.learning, { type: 'research', market: 'bitcoin', title: 'Source', url: 'https://example.com/research' });
+  assert.equal(tutoringEvidence(state.learning.activity, 'gold').some(line => line.includes('example.com')), false);
+  assert.equal(tutoringEvidence(state.learning.activity, 'bitcoin').some(line => line.includes('example.com')), true);
+  assert.deepEqual(cleanActivity(state.learning.activity), state.learning.activity);
 });

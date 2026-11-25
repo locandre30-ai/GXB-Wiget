@@ -1,3 +1,4 @@
+import { CHECK_INS, latestCheckIn, recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
 import { setupNavigation } from './navigation.mjs';
 import { marketBrief, watchlist } from './market-watch.mjs';
@@ -449,6 +450,97 @@ function renderHome() {
   workspace.append(dashboard);
 }
 
+function renderLearningActivity() {
+  const panel = node('section', undefined, 'panel stack');
+  panel.append(node('h2', 'Learning activity'),
+    node('p', 'Arena saves your recent Academy answers and simulated practice decisions to this profile as they happen. Check-ins are optional and describe how you say you feel. The AI tutoring prompt previews what you can choose to share.'));
+  const signal = node('p', undefined, 'notice');
+  const records = node('div', undefined, 'activity');
+  const feedback = node('p');
+  feedback.setAttribute('role', 'status');
+  const [feelingLabel, feeling] = select('How are you approaching the market today?',
+    [['', 'Choose a check-in'], ...CHECK_INS.map(item => [item, item])], '');
+  feeling.required = true;
+  feeling.setAttribute('aria-label', 'Market check-in');
+  const check = node('form', undefined, 'stack');
+  const logCheck = node('button', 'Save check-in');
+  logCheck.type = 'submit';
+  check.append(feelingLabel, logCheck);
+  const research = node('form', undefined, 'stack');
+  research.append(node('h3', 'Save market research'), node('small', 'Save a public source you reviewed. Arena records when you saved it.'));
+  const [marketLabel, market] = select('Research market', [['stocks', 'Stocks and ETFs'], ['gold', 'Gold'], ['bitcoin', 'Bitcoin']],
+    activeProfile().market);
+  market.setAttribute('aria-label', 'Research market');
+  const title = node('input');
+  title.required = true;
+  title.maxLength = 100;
+  const titleLabel = node('label', 'Source title', 'field');
+  titleLabel.append(title);
+  const url = node('input');
+  url.type = 'url';
+  url.maxLength = 1000;
+  url.required = true;
+  const urlLabel = node('label', 'Public HTTPS link', 'field');
+  urlLabel.append(url);
+  const saveSource = node('button', 'Save research source');
+  saveSource.type = 'submit';
+  research.append(marketLabel, titleLabel, urlLabel, saveSource);
+  const columns = node('div', undefined, 'two learning-activity');
+  columns.append(check, research);
+  panel.append(signal, columns, feedback, records);
+
+  function paint() {
+    const activity = activeProfile().state.learning.activity;
+    const latest = latestCheckIn(activity);
+    signal.textContent = latest ? 'Latest check-in · ' + latest.feeling : 'No check-in saved yet.';
+    records.replaceChildren(node('h3', 'Recent profile activity'));
+    if (!activity.length) records.append(node('p', 'Your first saved learning decision or research source will appear here.'));
+    for (const item of activity.slice(-8).reverse()) {
+      const row = node('article', undefined, 'record');
+      const time = node('time', new Date(item.at).toLocaleString());
+      time.dateTime = item.at;
+      let summary;
+      if (item.type === 'research') {
+        summary = link(item.title, item.url, 'research-link');
+        summary.target = '_blank';
+        summary.rel = 'noopener noreferrer';
+        row.append(summary, time, node('small', marketNames[item.market] + ' research'));
+      } else {
+        const label = item.type === 'academy' ? marketNames[item.market] + ' · ' + lessons[item.chapter] + ' · ' + (item.correct ? 'Correct answer' : 'Retry needed') :
+          item.type === 'practice' ? item.drill + ' · ' + (item.correct ? 'Correct practice decision' : 'Missed practice decision') :
+          item.type === 'studio' ? marketNames[item.market] + ' · Paper ' + item.action :
+          item.type === 'pressure' ? 'Decision reflection · ' + item.feeling : 'Check-in · ' + item.feeling;
+        row.append(node('strong', label), time);
+      }
+      records.append(row);
+    }
+  }
+
+  async function save(event, control, status) {
+    control.disabled = true;
+    let recorded = false;
+    try {
+      const ok = await updateProfile(profile => { recorded = recordActivity(profile.state.learning, event); });
+      if (!ok) return;
+      feedback.textContent = recorded ? status : 'Enter a title and a public HTTPS link.';
+      if (recorded) paint();
+    } finally {
+      control.disabled = false;
+    }
+  }
+
+  check.onsubmit = event => {
+    event.preventDefault();
+    save({ type: 'check-in', feeling: feeling.value }, logCheck, 'Check-in saved. Upcoming Academy checkpoints can use it.');
+  };
+  research.onsubmit = async event => {
+    event.preventDefault();
+    await save({ type: 'research', market: market.value, title: title.value, url: url.value }, saveSource, 'Research source saved.');
+  };
+  workspace.append(panel);
+  paint();
+}
+
 function renderAcademy() {
   const state = activeProfile().state;
   const market = location.hash.split('/')[1];
@@ -463,7 +555,10 @@ function renderAcademy() {
   }
   choices.append(list);
   workspace.append(choices);
-  if (['gold', 'bitcoin'].includes(market)) renderTraining('academy', market);
+  if (['gold', 'bitcoin'].includes(market)) {
+    choices.append(link('Learning activity and check-in', '#academy'));
+    renderTraining('academy', market);
+  } else renderLearningActivity();
 }
 
 function renderPractice() {
@@ -520,7 +615,10 @@ function render(focus = false) {
   if (page === 'academy') renderAcademy();
   if (page === 'practice') renderPractice();
   if (page === 'studio') renderStudio(workspace, activeProfile().market, guest ? 'guest' : store.book.active,
-    command => updateProfile(profile => recordPaperDecision(profile.state, command)));
+    (command, market) => updateProfile(profile => {
+      recordPaperDecision(profile.state, command);
+      recordActivity(profile.state.learning, { type: 'studio', market, action: command.type === 'entry' ? command.side : command.type });
+    }));
   if (page === 'performance') renderPerformance();
   status();
   if (focus) workspace.focus();

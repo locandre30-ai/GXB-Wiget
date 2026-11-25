@@ -13,7 +13,7 @@ const book={active:'king',profiles:{king:{name:'King',icon:'👑',state:{session
 const context={document:{head:new Element('head'),body,createElement:t=>new Element(t),querySelector:()=>arena},window:{scrollTo(){}},localStorage:{setItem(){},removeItem(){}},BOOK:book,ST:book.profiles.king.state,answering:false,
   activeProfile:()=>book.profiles[book.active],openProfMenu(){},saveState(){saves++;},newProfileId:()=> 'new',unusedIcon:()=> '🌊',normalize:()=>({sessions:0,xp:0,dayStreak:0,skills:{}}),sizeCanvases(){},newSession(){sessions++;}};
 context.switchProfile=id=>{book.active=id;context.ST=book.profiles[id].state;};context.applyProfile=()=>{context.ST=book.profiles[book.active].state;};
-Object.assign(context, require('../arena/learning.mjs'));
+Object.assign(context, require('../arena/learning.mjs'), require('../arena/activity.mjs'));
 vm.createContext(context);
 const start=html.indexOf('    function initDashboard(){');
 const end=html.indexOf('    document.body.classList.remove',start);

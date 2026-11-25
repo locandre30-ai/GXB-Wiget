@@ -1,3 +1,4 @@
+import { cleanActivity } from './activity.mjs';
 export const assessmentFields = {
   goal: ['Learn the basics', 'Practice day trades', 'Study longer-term entries'],
   experience: ['New to charts', 'Some chart practice', 'Regular practice'],
@@ -25,7 +26,7 @@ export function cleanLearning(raw) {
     const value = raw?.paper?.[action];
     if (Number.isSafeInteger(value) && value > 0 && value <= 100000) paper[action] = value;
   }
-  return { paper, assessment: valid ? Object.fromEntries(Object.keys(assessmentFields).map(key => [key, assessment[key]])) : null, evidence };
+  return { activity: cleanActivity(raw?.activity), paper, assessment: valid ? Object.fromEntries(Object.keys(assessmentFields).map(key => [key, assessment[key]])) : null, evidence };
 }
 
 export function recordCheckpoint(state, market, chapter, correct) {

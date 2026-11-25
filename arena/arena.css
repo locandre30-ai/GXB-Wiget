@@ -166,3 +166,11 @@ main > .panel + .panel { margin-top: 12px; }
 }
 .market-brief details { margin-bottom: 10px; }
 .market-brief details ul { padding-left: 18px; color: var(--muted); }
+
+.learning-activity { align-items: start; }
+.learning-activity form { min-width: 0; }
+.learning-activity + p:empty { display: none; }
+.research-link { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .learning-activity { grid-template-columns: 1fr; }
+}

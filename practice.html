@@ -651,6 +651,7 @@
   <script>
   (async () => {
     const { connectTraining, cleanState } = await import("./arena/training.mjs");
+    const { recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");
     const { assessmentFields, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions, paperLearningSummary } = await import("./arena/learning.mjs");
     "use strict";
     /* ==========================================================
@@ -1751,6 +1752,7 @@
         btnEl.classList.add("bad");
       }
       ST.rounds++; if(correct) ST.correct++;
+      recordActivity(ST.learning, {type:"practice",drill:CUR.drill,choice:key,correct});
       scenarioSeed = null;
       saveDraft();
       paintMeters();
@@ -2316,6 +2318,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
             'Tutor me in '+MARKETS[market].name+' using synthetic examples, one question at a time.',
             'Start with '+PATH[focus?.chapter??0]+'.',
             profile?'My learning goal is: '+profile.goal+'. My chart experience: '+profile.experience+'.':'Ask about my experience before choosing a difficulty.',
+            ...tutoringEvidence(ST.learning.activity,market),
             'Wait for my answer. If I miss, ask a smaller follow-up that addresses my reasoning, then let me retry. When I understand, give me a different example to apply it.'
           ].join('\n');
           tutorPrompt.hidden=false;copy.hidden=false;tutorPrompt.focus();
@@ -2326,7 +2329,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         return panel;
       }
 
-      function adaptiveChoices({market,chapter,prompt,answers,correct,why,feedback,advance,finished,onMiss}){
+      function adaptiveChoices({market,chapter,question,prompt,answers,correct,why,feedback,advance,finished,onMiss}){
         const choices=el('div',undefined,'homeProfiles');
         const support=el('div',undefined,'adaptiveSupport');
         let first=true,resolved=false,usedHint=false;
@@ -2339,11 +2342,13 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const button=action(answer,()=>{
             if(resolved||button.disabled)return;
             const right=index===correct;
+            ST.learning ??= cleanLearning();
+            recordActivity(ST.learning,{type:"academy",market,chapter,question,choice:index,correct:right,first,hint:usedHint||Boolean(details.open)});
             if(first){
               recordCheckpoint(ST,market,chapter,right&&!usedHint&&!details.open);
-              saveState(ST);
               first=false;
             }
+            saveState(ST);
             if(!right){
               onMiss?.();
               button.disabled=true;
@@ -2372,6 +2377,22 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
               el('p',investing?'What would you check on a longer timeframe before using this idea? '+checkpointCues[chapter]:
                 'What would make you wait before acting? '+checkpointCues[chapter]));
             support.append(reflection);
+            const pressure=pressureQuestion(ST.learning.activity);
+            if(pressure){
+              const check=el('details');
+              const [question,planned,impulse]=pressure;
+              const response=el('p');response.setAttribute('aria-live','polite');
+              const choose=plannedChoice=>{
+                recordActivity(ST.learning,{type:'pressure',feeling:latestCheckIn(ST.learning.activity).feeling,planned:plannedChoice});
+                saveState(ST);
+                impulsive.disabled=true;disciplined.disabled=true;
+                response.textContent=plannedChoice?'That keeps the decision tied to your plan.':'Compare that impulse with the rule you set before the setup.';
+              };
+              const impulsive=action(impulse,()=>choose(false)),disciplined=action(planned,()=>choose(true));
+              check.append(el('summary','Practice a decision based on your check-in'),el('p',question),
+                impulsive,disciplined,response);
+              support.append(check);
+            }
             const next=action(finished,advance,true);
             support.append(next);next.focus();
           });
@@ -2399,7 +2420,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const [prompt,answers,correct,why]=reads[round];
           const feedback=el('p','Choose an answer to compare your read with the chart.','missionFeedback');
           feedback.setAttribute('aria-live','polite');
-          home.append(...adaptiveChoices({market:key,chapter:0,prompt,answers,correct,why,feedback,
+          home.append(...adaptiveChoices({market:key,chapter:0,question:round,prompt,answers,correct,why,feedback,
             advance:()=>{round++;if(round<reads.length)draw();else complete();},
             finished:round<reads.length-1?'Next chart →':'Complete mission →',onMiss:()=>misses++}));
         }
@@ -2511,7 +2532,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const [prompt,answers,correct,why]=lesson.questions[round];
           const card=el('section',undefined,'homeCard'),feedback=el('p','','missionFeedback');
           feedback.setAttribute('aria-live','polite');
-          card.append(skillChart(m,chapter,round),...adaptiveChoices({market:key,chapter,prompt,answers,correct,why,feedback,
+          card.append(skillChart(m,chapter,round),...adaptiveChoices({market:key,chapter,question:round,prompt,answers,correct,why,feedback,
             advance:()=>{round++;if(round<lesson.questions.length)draw();else finish();},
             finished:round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →'}),setupHelp(chapter,round));
           home.append(card);

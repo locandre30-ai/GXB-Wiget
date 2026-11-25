@@ -165,7 +165,7 @@ function replayPanel(host, replay, observe) {
   const stats = element('p');
   const feedback = element('p');
   feedback.setAttribute('role', 'status');
-  const paper = paperPanel(replay, () => paint(), observe);
+  const paper = paperPanel(replay, () => paint(), command => observe(command, snapshot.metadata.market));
   const paint = () => {
     const state = replay.snapshot();
     const { open, high, low, close, volume } = state.latest;
