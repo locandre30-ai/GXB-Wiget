@@ -1,4 +1,4 @@
-import { CHECK_INS, latestCheckIn, recordActivity } from './activity.mjs';
+import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
 import { setupNavigation } from './navigation.mjs';
 import { marketBrief, watchlist } from './market-watch.mjs';
@@ -458,22 +458,15 @@ function renderHome() {
 
 function renderLearningActivity() {
   const panel = node('section', undefined, 'panel stack');
-  panel.append(node('h2', 'Learning activity'),
-    node('p', 'Arena saves your recent Academy answers and simulated practice decisions to this profile as they happen. Check-ins are optional and describe how you say you feel. The AI tutoring prompt previews what you can choose to share.'));
-  const signal = node('p', undefined, 'notice');
+  const history = node('details');
   const records = node('div', undefined, 'activity');
+  history.append(node('summary', 'Learning activity'), records);
+  const sources = node('details');
+  sources.append(node('summary', 'Save market research'));
   const feedback = node('p');
   feedback.setAttribute('role', 'status');
-  const [feelingLabel, feeling] = select('How are you approaching the market today?',
-    [['', 'Choose a check-in'], ...CHECK_INS.map(item => [item, item])], '');
-  feeling.required = true;
-  feeling.setAttribute('aria-label', 'Market check-in');
-  const check = node('form', undefined, 'stack');
-  const logCheck = node('button', 'Save check-in');
-  logCheck.type = 'submit';
-  check.append(feelingLabel, logCheck);
   const research = node('form', undefined, 'stack');
-  research.append(node('h3', 'Save market research'), node('small', 'Save a public source you reviewed. Arena records when you saved it.'));
+  research.append(node('small', 'Save a public source you reviewed. Arena records when you saved it.'));
   const [marketLabel, market] = select('Research market', [['stocks', 'Stocks and ETFs'], ['gold', 'Gold'], ['bitcoin', 'Bitcoin']],
     activeProfile().market);
   market.setAttribute('aria-label', 'Research market');
@@ -491,14 +484,11 @@ function renderLearningActivity() {
   const saveSource = node('button', 'Save research source');
   saveSource.type = 'submit';
   research.append(marketLabel, titleLabel, urlLabel, saveSource);
-  const columns = node('div', undefined, 'two learning-activity');
-  columns.append(check, research);
-  panel.append(signal, columns, feedback, records);
+  sources.append(research, feedback);
+  panel.append(history, sources);
 
   function paint() {
     const activity = activeProfile().state.learning.activity;
-    const latest = latestCheckIn(activity);
-    signal.textContent = latest ? 'Latest check-in · ' + latest.feeling : 'No check-in saved yet.';
     records.replaceChildren(node('h3', 'Recent profile activity'));
     if (!activity.length) records.append(node('p', 'Your first saved learning decision or research source will appear here.'));
     for (const item of activity.slice(-8).reverse()) {
@@ -535,10 +525,6 @@ function renderLearningActivity() {
     }
   }
 
-  check.onsubmit = event => {
-    event.preventDefault();
-    save({ type: 'check-in', feeling: feeling.value }, logCheck, 'Check-in saved. Upcoming Academy checkpoints can use it.');
-  };
   research.onsubmit = async event => {
     event.preventDefault();
     await save({ type: 'research', market: market.value, title: title.value, url: url.value }, saveSource, 'Research source saved.');
@@ -561,10 +547,7 @@ function renderAcademy() {
   }
   choices.append(list);
   workspace.append(choices);
-  if (['gold', 'bitcoin'].includes(market)) {
-    choices.append(link('Learning activity and check-in', '#academy'));
-    renderTraining('academy', market);
-  } else renderLearningActivity();
+  if (['gold', 'bitcoin'].includes(market)) renderTraining('academy', market);
 }
 
 function renderPractice() {
@@ -616,6 +599,7 @@ function render(focus = false) {
   if (page === 'settings') {
     if (navigation.hidden) workspace.append(link('Back to entrance', '#entrance'));
     renderSettings();
+    if (guest || store.book.active) renderLearningActivity();
   }
   if (page === 'home') renderHome();
   if (page === 'academy') renderAcademy();

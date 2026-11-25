@@ -83,6 +83,11 @@
     .guideUser p { margin: 4px 0 }
     .guideReply p { margin: 0 0 10px }
     .guideReply details { margin-top: 10px }
+    .guideUtility { margin-bottom: 8px }
+    .guideCheckIn form { display: grid; gap: 6px; margin: 8px 0 }
+    .guideCheckIn label { display: grid; gap: 4px }
+    .guideCheckIn select { width: 100%; padding: 7px; color: var(--ink); background: #101a2a; border: 1px solid #526481; border-radius: 6px }
+    .guideCheckIn button { justify-self: start }
     .guideHandoff > div { margin-top: 8px }
     @media(max-width: 710px) { .academyLayout { grid-template-columns: minmax(0,1fr) } }
     .adaptiveSupport details { margin-bottom: 8px }
@@ -677,7 +682,7 @@
   <script>
   (async () => {
     const { connectTraining, cleanState } = await import("./arena/training.mjs");
-    const { recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");
+    const { CHECK_INS, recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");
     const { cleanIntroduction, introductionReply, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions } = await import("./arena/learning.mjs");
     "use strict";
     /* ==========================================================
@@ -2306,6 +2311,42 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         return {guide,bubble};
       }
 
+      function guideCheckIn(){
+        const details=el('details',undefined,'guideCheckIn');
+        const summary=el('summary','Quick check-in');
+        const form=el('form');
+        const label=el('label','How are you approaching the market today?');
+        const input=el('select');input.required=true;
+        input.setAttribute('aria-label','Market check-in');
+        const placeholder=el('option','Choose how you feel');placeholder.value='';input.append(placeholder);
+        for(const feeling of CHECK_INS){const option=el('option',feeling);option.value=feeling;input.append(option);}
+        input.value=latestCheckIn(ST.learning.activity)?.feeling??'';
+        label.append(input);
+        const save=el('button','Save check-in','chip');save.type='submit';
+        const status=el('small');status.setAttribute('role','status');
+        form.append(label,save);
+        form.onsubmit=async event=>{
+          event.preventDefault();
+          if(!CHECK_INS.includes(input.value))return;
+          const prior=ST.learning.activity;
+          recordActivity(ST.learning,{type:'check-in',feeling:input.value});
+          save.disabled=true;
+          if(await saveState(ST)===false){
+            ST.learning.activity=prior;
+            status.textContent='Check-in could not be saved.';
+          } else {
+            details.open=false;
+            status.textContent='Check-in saved.';
+            summary.focus();
+          }
+          save.disabled=false;
+        };
+        details.append(summary,form);
+        const wrapper=el('div',undefined,'guideUtility');
+        wrapper.append(details,status);
+        return wrapper;
+      }
+
       function guideOverview(market){
         ST.learning ??= cleanLearning();
         const {guide}=academyGuide(el('p','Hey, welcome to the Academy. Start by reading the chart, take it one question at a time, and ask me for a clue whenever you need one.'));
@@ -2360,6 +2401,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           }
         }
         showIntroduction();
+        guide.append(guideCheckIn());
         const handoff=el('details',undefined,'guideHandoff');
         handoff.append(el('summary','Continue with your own AI assistant'));
         const panel=el('div');
