@@ -10,6 +10,10 @@ async function run() {
     await page.getByLabel('Local profile name').fill('King');
     await page.getByRole('button', { name: 'Create profile and enter' }).click();
     await page.getByRole('heading', { name: 'Market watchlist' }).waitFor();
+    const art = await page.locator('.market-art').evaluateAll(items => items.map(item => getComputedStyle(item).backgroundImage));
+    assert.equal(art.length, 2);
+    assert.ok(art.every(image => image.startsWith('url("data:image/webp;base64,')));
+    assert.equal(await page.getByRole('link', { name: 'Command Center', exact: true }).count(), 1);
     assert.equal(await page.locator('nav').evaluate(nav => nav.getBoundingClientRect().left), 0);
     assert.ok(await page.locator('.dashboard-rail').evaluate(rail => rail.offsetLeft > 1400));
     const order = () => page.locator('.nav-row a').allTextContents();

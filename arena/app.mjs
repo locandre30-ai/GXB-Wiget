@@ -416,7 +416,9 @@ function renderHome() {
     });
     const arrow = node('span', '↗', 'market-arrow');
     arrow.setAttribute('aria-hidden', 'true');
-    market.prepend(arrow);
+    const art = node('span', undefined, 'market-art market-art-' + id);
+    art.setAttribute('aria-hidden', 'true');
+    market.prepend(art, arrow);
     const tickers = node('span', tickerPreview(profile.watch[id]), 'market-tickers');
     tickers.dataset.market = id;
     market.append(tickers);
@@ -426,7 +428,11 @@ function renderHome() {
   const academyLink = link(progress.next < 0 ? 'Review the ' + marketNames[track] + ' Academy' :
     'Academy · ' + lessons[progress.next], '#academy/' + track);
   const practiceLink = link(state.draft ? 'Resume practice draft' : 'Open Free Practice', '#practice');
-  actions.append(node('h2', 'Next exercises'));
+  const nextTitle = node('h2', undefined, 'icon-heading');
+  const nextIcon = node('span', undefined, 'arena-icon icon-next');
+  nextIcon.setAttribute('aria-hidden', 'true');
+  nextTitle.append(nextIcon, 'Next exercises');
+  actions.append(nextTitle);
   const next = profile.experience === 'experienced' || state.draft ? [practiceLink, academyLink] : [academyLink, practiceLink];
   next[0].classList.add('primary');
   actions.append(...next);

@@ -174,3 +174,26 @@ main > .panel + .panel { margin-top: 12px; }
 @media (max-width: 600px) {
   .learning-activity { grid-template-columns: 1fr; }
 }
+
+.nav-row a, .icon-heading { display: flex; align-items: center; gap: 8px; }
+.arena-icon { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: 0 0 16px; color: var(--gold); }
+.arena-icon::before, .arena-icon::after { grid-area: 1 / 1; }
+.arena-icon::before { content: ''; display: block; box-sizing: border-box; }
+.icon-grid::before { width: 4px; height: 4px; background: currentColor; border-radius: 1px; transform: translate(-3px,-3px); box-shadow: 6px 0 currentColor, 0 6px currentColor, 6px 6px currentColor; }
+.icon-book::before { width: 14px; height: 11px; border: 1px solid; border-radius: 2px; }
+.icon-book::after { content: ''; height: 10px; border-left: 1px solid; }
+.icon-target::before { width: 14px; height: 14px; border: 1px solid; border-radius: 50%; }
+.icon-target::after { content: ''; width: 5px; height: 5px; border: 1px solid; border-radius: 50%; }
+.icon-candles::before { width: 2px; height: 11px; background: currentColor; box-shadow: -5px 3px currentColor, 5px -2px currentColor; }
+.icon-next::before { width: 8px; height: 8px; border: solid; border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
+.icon-watch::before { width: 13px; height: 9px; border: 1px solid; border-radius: 65% 65% 65% 65%; }
+.icon-watch::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.dashboard .market { isolation: isolate; overflow: hidden; }
+.market-art { position: absolute; z-index: -1; inset: 0 0 0 36%; background-size: cover; background-position: 70% 53%; opacity: .42; mask-image: linear-gradient(90deg, transparent, #000 53%); }
+.dashboard .market:hover .market-art, .dashboard .market[aria-pressed="true"] .market-art { opacity: .54; }
+.market-arrow { color: #ffdd91; }
+@media (max-width: 480px) {
+  .market-art { inset-inline-start: 18%; opacity: .23; }
+  .dashboard .market:hover .market-art, .dashboard .market[aria-pressed="true"] .market-art { opacity: .30; }
+}
+.nav-row a { gap: 6px; padding-inline: 8px; }

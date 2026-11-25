@@ -42,7 +42,10 @@ export function watchlist(profile, title, save, initiallyOpen = false) {
   const rail = element('section', undefined, 'panel watch-panel');
   const market = profile.market;
   let symbols = [...profile.watch[market]];
-  const heading = element('h2', 'Market watchlist');
+  const heading = element('h2', undefined, 'icon-heading');
+  const icon = element('span', undefined, 'arena-icon icon-watch');
+  icon.setAttribute('aria-hidden', 'true');
+  heading.append(icon, 'Market watchlist');
   heading.tabIndex = -1;
   rail.append(heading, element('p', title + ' · Saved locally'));
   const list = element('ul', undefined, 'watch-list');
