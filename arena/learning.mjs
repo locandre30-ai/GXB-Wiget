@@ -26,7 +26,7 @@ export function cleanLearning(raw) {
     const value = raw?.paper?.[action];
     if (Number.isSafeInteger(value) && value > 0 && value <= 100000) paper[action] = value;
   }
-  return { activity: cleanActivity(raw?.activity), paper, assessment: valid ? Object.fromEntries(Object.keys(assessmentFields).map(key => [key, assessment[key]])) : null, evidence };
+  return { activity: cleanActivity(raw?.activity), introduction: cleanIntroduction(raw?.introduction), paper, assessment: valid ? Object.fromEntries(Object.keys(assessmentFields).map(key => [key, assessment[key]])) : null, evidence };
 }
 
 export function recordCheckpoint(state, market, chapter, correct) {
@@ -71,7 +71,7 @@ export function learningFocus(state, market) {
   const profile = learning.assessment;
   if (!profile) return null;
   const chapter = profile.experience === 'New to charts' ? 0 : { Structure: 1, Risk: 3, 'Entries and exits': 4 }[profile.focus];
-  return { chapter, reason: profile.goal + ' · Based on your assessment.' };
+  return { chapter, source: 'assessment', reason: profile.goal + ' · Based on your assessment.' };
 }
 
 export const bitcoinReads = [
@@ -132,3 +132,24 @@ export const recoveryQuestions = [
   ['What should guide an exit decision?', 'The rule and evidence available at the time', 'The price reached after you exited'],
   ['What can you repeat and measure next time?', 'A specific decision rule', 'A promise to win']
 ];
+
+export function cleanIntroduction(value) {
+  return typeof value === 'string' ? value.trim().slice(0, 500) : '';
+}
+
+export function introductionReply(value) {
+  const words = cleanIntroduction(value).toLowerCase();
+  if (/\b(brand new|beginner|just starting|new to|never traded|never invested)\b/.test(words)) {
+    return 'We’ll start with what the chart is showing. I’ll explain the terms as we go and leave room to try again.';
+  }
+  if (/\b(longer.term|long.term|investing|investor|swing trad(?:e|ing|er))\b/.test(words)) {
+    return 'You mentioned a longer view. We can use that perspective when we compare timeframes and decide what counts as meaningful evidence.';
+  }
+  if (/\b(day trad(?:e|ing|er|es)|scalp(?:ing|er)?|intraday)\b/.test(words)) {
+    return 'You brought up intraday trading. We’ll practice reading the setup and spelling out what needs to happen before making a decision.';
+  }
+  if (/\b(fear|greed|fomo|hesitat\w*|nervous|confidence|confident|emotions?)\b/.test(words)) {
+    return 'You brought up how it feels to make a decision. We can slow down at those moments and work through what would help you stick to a plan.';
+  }
+  return 'Thanks for introducing yourself. We’ll build from reading the market to planning risk, entries and exits, then reviewing your decisions.';
+}

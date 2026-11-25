@@ -54,11 +54,7 @@
     #trainingStatus:not([hidden]) { border: 1px solid #a97758; padding: 10px; margin: 10px; color: #ffceb4 }
     body.embedded { display: block; min-height: 0; height: auto; background: #101a2a }
     body.embedded .arena { box-shadow: none; --maxW: 100%; background: #162337 }
-    .academyAssessment { margin-bottom: 12px }
-    .academyAssessment form { display: grid; gap: 8px; margin: 12px 0 }
     .guideHandoff textarea:not([hidden]) { display: block; width: 100%; margin: 8px 0; padding: 8px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
-    .academyAssessment label { display: grid; gap: 4px }
-    .academyAssessment select { padding: 10px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
     .academyLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(255px, 340px); gap: 18px; align-items: start }
     .academySide { display: grid; gap: 14px; min-width: 0 }
     .academyVisuals { min-width: 0 }
@@ -78,6 +74,15 @@
     .guideBubble .chip { text-align: left; white-space: normal; text-transform: none; letter-spacing: normal }
     .guideBubble .missionFeedback { min-height: 0; padding: 0; margin: 12px 0; color: var(--ink) }
     .guideBubble .missionFeedback:empty { display: none }
+    .guideConversation { display: grid; gap: 12px; margin: 12px 0 }
+    .guideIntroForm { display: grid; gap: 8px }
+    .guideIntroForm label { display: grid; gap: 6px; font-weight: 600 }
+    .guideIntroForm textarea { width: 100%; padding: 10px; color: var(--ink); background: #101a2a; border: 1px solid #526481; border-radius: 8px; font: inherit; resize: vertical }
+    .guideIntroForm button { justify-self: start }
+    .guideUser { margin: 0 0 0 22px; padding: 8px 12px; border: 1px solid #526481; border-radius: 12px 4px 12px 12px; background: #101a2a; overflow-wrap: anywhere }
+    .guideUser p { margin: 4px 0 }
+    .guideReply p { margin: 0 0 10px }
+    .guideReply details { margin-top: 10px }
     .guideHandoff > div { margin-top: 8px }
     @media(max-width: 710px) { .academyLayout { grid-template-columns: minmax(0,1fr) } }
     .adaptiveSupport details { margin-bottom: 8px }
@@ -673,7 +678,7 @@
   (async () => {
     const { connectTraining, cleanState } = await import("./arena/training.mjs");
     const { recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");
-    const { assessmentFields, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions, paperLearningSummary } = await import("./arena/learning.mjs");
+    const { cleanIntroduction, introductionReply, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions } = await import("./arena/learning.mjs");
     "use strict";
     /* ==========================================================
       ICC Practice Arena engine
@@ -2287,57 +2292,13 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         PATH.forEach((name,i)=>{const row=el('div',undefined,'pathRow'),finished=i===0?done:!!j.skills?.[j.market]?.includes(i);row.append(el('span',finished?'✓':String(i+1),'pathDot'),action(name+(finished?' · Review':' · Begin'),()=>i===0?mission(j.market):skillMission(j.market,i)));path.append(row);});
         section.append(path,el('small','Explore any skill at your own pace. Lesson completion marks practice, not trading readiness.'));return section;
       }
-      function assessmentPanel(market){
-        ST.learning ??= cleanLearning();
-        const panel=el('section',undefined,'homeCard academyAssessment');
-        const heading=el('h2','Your learning plan');
-        const recommendation=el('p');
-        const form=el('form');
-        const fields={};
-        for(const [key,options] of Object.entries(assessmentFields)){
-          const label=el('label',{goal:'What are you here to learn?',experience:'How much chart practice do you have?',focus:'What should we focus on?'}[key]);
-          const input=el('select');
-          input.required=true;input.setAttribute('aria-label',label.textContent);
-          const placeholder=el('option','Choose one');placeholder.value='';input.append(placeholder);
-          for(const value of options){const option=el('option',value);option.value=value;input.append(option);}
-          input.value=ST.learning.assessment?.[key]??'';
-          fields[key]=input;label.append(input);form.append(label);
-        }
-        const save=el('button','Save learning assessment','homePrimary');save.type='submit';
-        const status=el('p');status.setAttribute('role','status');form.append(save,status);
-        const details=el('details');
-        const assessmentLabel=el('summary',ST.learning.assessment?'Revisit learning assessment':'Take a short learning assessment');
-        details.append(assessmentLabel,form);
-        const next=el('div');
-        function paint(){
-          const focus=learningFocus(ST,market);
-          recommendation.textContent=focus?.reason??'Three optional questions help choose a starting point. Your lesson answers and simulated Free Practice can refine it as you go.';
-          next.replaceChildren();
-          if(focus)next.append(action('Recommended: '+PATH[focus.chapter],()=>focus.chapter===0?mission(market):skillMission(market,focus.chapter),true));
-        }
-        form.onsubmit=e=>{
-          e.preventDefault();
-          const answers=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]));
-          const assessment=cleanLearning({assessment:answers}).assessment;
-          if(!assessment)return;
-          ST.learning.assessment=assessment;
-          assessmentLabel.textContent='Revisit learning assessment';
-          saveState(ST);status.textContent='Assessment updated.';paint();
-        };
-        panel.append(heading,recommendation,next,details,el('small','Uses answers and simulated practice decisions saved to this profile.'));
-        const paper=paperLearningSummary(ST);
-        if(paper)panel.append(el('small',paper));
-        paint();
-        return panel;
-      }
-
       function academyGuide(message){
         const guide=el('section',undefined,'academyGuide');
         guide.setAttribute('aria-label','GxB Academy Guide');
         const identity=el('div',undefined,'guideIdentity');
         const avatar=el('div',undefined,'guideAvatar');
         avatar.setAttribute('aria-hidden','true');
-        avatar.append(el('span','♔','guideCrown'),el('span',undefined,'guideVisor'),el('span','GxB','guideMark'));
+        avatar.append(el('span','♔','guideCrown'),el('span',undefined,'guideVisor'),el('span','GXB','guideMark'));
         identity.append(avatar,el('strong','GxB Academy Guide'));
         const bubble=el('div',undefined,'guideBubble');
         bubble.append(message);
@@ -2346,12 +2307,64 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       }
 
       function guideOverview(market){
-        const {guide,bubble}=academyGuide(el('p','Choose a lesson. I’ll ask one question at a time and help you work through your chart read.'));
+        ST.learning ??= cleanLearning();
+        const {guide}=academyGuide(el('p','Hey, welcome to the Academy. Start by reading the chart, take it one question at a time, and ask me for a clue whenever you need one.'));
+        const conversation=el('div',undefined,'guideConversation');
+        guide.append(conversation);
+        function showIntroduction(){
+          conversation.replaceChildren();
+          const introduction=ST.learning.introduction;
+          if(!introduction){
+            const form=el('form',undefined,'guideIntroForm');
+            const label=el('label','Tell me a little about yourself.');
+            const input=el('textarea');
+            input.required=true;
+            input.maxLength=500;
+            input.rows=3;
+            input.placeholder='What brought you to the market?';
+            input.setAttribute('aria-label',label.textContent);
+            label.append(input);
+            const submit=el('button','Send','homePrimary');submit.type='submit';
+            form.append(label,el('small','Your introduction stays in this local profile and its backups.'),submit,
+              action('Start without introducing myself',()=>mission(market)));
+            form.onsubmit=async event=>{
+              event.preventDefault();
+              const intro=cleanIntroduction(input.value);
+              if(!intro){input.focus();return;}
+              submit.disabled=true;
+              const previous=ST.learning.introduction;
+              ST.learning.introduction=intro;
+              if(await saveState(ST)===false){
+                ST.learning.introduction=previous;submit.disabled=false;return;
+              }
+              showIntroduction();
+              conversation.querySelector('.guideReply')?.focus();
+            };
+            conversation.append(form);
+            return;
+          }
+          const reply=el('div',undefined,'guideBubble guideReply');
+          reply.tabIndex=-1;
+          reply.append(el('p',introductionReply(introduction)),
+            el('p','Let’s start with your first market review. Look for my crown, two eyes and GXB badge beside the chart. I’ll meet you there.'),
+            action('Open first market review',()=>mission(market),true));
+          const you=el('div',undefined,'guideUser');
+          you.append(el('small','You'),el('p',introduction));
+          conversation.append(you,reply);
+          const focus=learningFocus(ST,market);
+          if(focus && focus.source!=='assessment'){
+            const suggestion=el('details');
+            suggestion.append(el('summary','What should I revisit?'),el('p',focus.reason),
+              action('Review '+PATH[focus.chapter],()=>focus.chapter===0?mission(market):skillMission(market,focus.chapter)));
+            reply.append(suggestion);
+          }
+        }
+        showIntroduction();
         const handoff=el('details',undefined,'guideHandoff');
         handoff.append(el('summary','Continue with your own AI assistant'));
         const panel=el('div');
         handoff.append(panel);
-        bubble.append(handoff);
+        guide.append(handoff);
         const tutorPrompt=el('textarea');tutorPrompt.readOnly=true;tutorPrompt.hidden=true;tutorPrompt.rows=5;
         tutorPrompt.setAttribute('aria-label','Academy tutoring prompt');
         const copy=action('Copy tutoring prompt',async ()=>{
@@ -2364,7 +2377,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const focus=learningFocus(ST,market),profile=ST.learning.assessment;
           tutorPrompt.value=[
             'Tutor me in '+MARKETS[market].name+' using synthetic examples, one question at a time.',
-            'Start with '+PATH[focus?.chapter??0]+'.',
+            'Start with '+PATH[focus?.chapter??0]+', then continue through structure, risk, entries, exits and review.',
             profile?'My learning goal is: '+profile.goal+'. My chart experience: '+profile.experience+'.':'Ask about my experience before choosing a difficulty.',
             ...tutoringEvidence(ST.learning.activity,market),
             'Wait for my answer. If I miss, ask a smaller follow-up that addresses my reasoning, then let me retry. When I understand, give me a different example to apply it.'
@@ -2378,7 +2391,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         const market=ST.journey.market;
         const layout=el('div',undefined,'academyLayout');
         const side=el('aside',undefined,'academySide');
-        side.append(guideOverview(market),assessmentPanel(market));
+        side.append(guideOverview(market));
         layout.append(journeyPanel(),side);
         return layout;
       }
@@ -2435,7 +2448,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
             for(const item of choices.children)item.disabled=true;
             feedback.textContent='That’s it. '+why;
             const reflection=el('details');
-            const investing=ST.learning?.assessment?.goal==='Study longer-term entries';
+            const investing=ST.learning?.assessment?.goal==='Study longer-term entries' || /\b(longer.term|long.term|investing|investor|swing trading)\b/i.test(ST.learning?.introduction??'');
             reflection.append(el('summary',investing?'Apply this to a longer holding period':'Apply this to your next practice decision'),
               el('p',investing?'What would you check on a longer timeframe before using this idea? '+checkpointCues[chapter]:
                 'What would make you wait before acting? '+checkpointCues[chapter]));

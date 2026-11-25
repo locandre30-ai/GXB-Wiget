@@ -1,7 +1,7 @@
 import { cleanActivity, pressureQuestion, recordActivity, tutoringEvidence } from '../arena/activity.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cleanLearning, learningFocus, recordCheckpoint, recordPaperDecision } from '../arena/learning.mjs';
+import { cleanIntroduction, introductionReply, cleanLearning, learningFocus, recordCheckpoint, recordPaperDecision } from '../arena/learning.mjs';
 import { cleanState } from '../arena/store.mjs';
 
 test('assessment, track-specific first attempts and simulated practice adapt the recommendation', () => {
@@ -23,7 +23,7 @@ test('invalid assessment and impossible first-attempt counts are ignored', () =>
   const raw = { assessment: { goal: 'arbitrary' }, evidence: { gold: {
     2: { attempts: 3, firstCorrect: 4 }, 4: { attempts: 2, firstCorrect: 1 }
   } } };
-  assert.deepEqual(cleanLearning(raw), { activity: [], paper: {}, assessment: null, evidence: {
+  assert.deepEqual(cleanLearning(raw), { activity: [], introduction: '', paper: {}, assessment: null, evidence: {
     gold: { 4: { attempts: 2, firstCorrect: 1 } }, bitcoin: {}
   } });
 });
@@ -51,4 +51,17 @@ test('observed activity stays bounded, validated and scoped to a learner and tra
   assert.equal(tutoringEvidence(state.learning.activity, 'gold').some(line => line.includes('example.com')), false);
   assert.equal(tutoringEvidence(state.learning.activity, 'bitcoin').some(line => line.includes('example.com')), true);
   assert.deepEqual(cleanActivity(state.learning.activity), state.learning.activity);
+});
+
+test('the guide responds to different introductions and keeps them profile-local', () => {
+  const beginner = 'I am new to charts.';
+  const investor = 'I’m interested in longer-term investing.';
+  const intraday = 'I want to learn day trading.';
+  assert.match(introductionReply(beginner), /explain the terms/);
+  assert.match(introductionReply(investor), /compare timeframes/);
+  assert.match(introductionReply(intraday), /intraday trading/);
+  const original = cleanState({ learning: { introduction: investor } });
+  assert.equal(cleanState(original).learning.introduction, investor);
+  assert.equal(cleanState().learning.introduction, '');
+  assert.equal(cleanIntroduction('x'.repeat(600)).length, 500);
 });

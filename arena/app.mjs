@@ -545,7 +545,7 @@ function renderAcademy() {
   const state = activeProfile().state;
   const market = location.hash.split('/')[1];
   const choices = node('section', undefined, 'panel');
-  choices.append(node('p', 'Choose a market to start seven guided lessons and an optional assessment. Your Academy answers and simulated Free Practice shape your next exercise.'));
+  choices.append(node('p', 'Choose Gold or Bitcoin to meet your GXB Guide and explore the full seven-lesson path.'));
   const list = node('div', undefined, 'two');
   for (const id of ['gold', 'bitcoin']) {
     const info = progressFor(state, id);

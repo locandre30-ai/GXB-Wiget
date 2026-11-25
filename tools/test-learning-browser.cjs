@@ -22,20 +22,24 @@ async function run() {
     await page.getByRole('link', { name: 'Test source' }).waitFor();
     await page.getByRole('link', { name: /^Bitcoin/ }).click();
     const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
-    await frame.getByText('Take a short learning assessment', { exact: true }).click();
-    await frame.getByLabel('What are you here to learn?', { exact: true }).selectOption({ label: 'Study longer-term entries' });
-    await frame.getByLabel('How much chart practice do you have?', { exact: true }).selectOption({ label: 'Some chart practice' });
-    await frame.getByLabel('What should we focus on?', { exact: true }).selectOption({ label: 'Risk' });
-    await frame.getByRole('button', { name: 'Save learning assessment' }).click();
     const guide = frame.getByRole('region', { name: 'GxB Academy Guide' });
+    await guide.getByText(/Hey, welcome to the Academy/).waitFor();
+    await guide.getByRole('textbox', { name: 'Tell me a little about yourself.' }).fill('I’m interested in longer-term investing.');
+    await guide.getByRole('button', { name: 'Send', exact: true }).click();
+    await guide.getByText(/You mentioned a longer view/).waitFor();
+    await guide.getByRole('button', { name: 'Open first market review' }).click();
+    await frame.getByRole('heading', { name: 'Meet the market.' }).waitFor();
+    await frame.getByRole('button', { name: 'Show me the chart →' }).click();
+    await guide.getByRole('heading', { name: /BTC trades around the clock/ }).waitFor();
+    await frame.getByRole('button', { name: '← My journey' }).click();
     await guide.getByText('Continue with your own AI assistant').click();
     await guide.getByRole('button', { name: 'Build an AI tutoring prompt' }).click();
     const prompt = await frame.getByLabel('Academy tutoring prompt').inputValue();
     assert.match(prompt, /one question at a time/);
-    assert.match(prompt, /Study longer-term entries/);
+    assert.doesNotMatch(prompt, /interested in longer-term investing/);
     assert.match(prompt, /Fear of missing out/);
     assert.match(prompt, /example\.com\/market-research/);
-    await frame.getByRole('button', { name: 'Recommended: Define risk' }).click();
+    await frame.getByRole('button', { name: 'Define risk · Begin' }).click();
     await guide.getByRole('heading', { name: /practice BTC long/ }).waitFor();
     await frame.getByRole('button', { name: '$50', exact: true }).click();
     await frame.getByRole('heading', { name: 'Quick follow-up' }).waitFor();
@@ -53,9 +57,11 @@ async function run() {
       return book.profiles[book.active].state.learning.evidence.bitcoin[3]?.attempts === 2;
     });
     await page.reload();
-    await frame.getByText('Your first answers on this track suggest revisiting this skill.').waitFor();
+    await guide.getByText(/You mentioned a longer view/).waitFor();
+    await guide.getByText('What should I revisit?').click();
+    await guide.getByText('Your first answers on this track suggest revisiting this skill.').waitFor();
     await page.getByRole('link', { name: /^Gold/ }).click();
-    await frame.getByRole('button', { name: 'Recommended: Define risk' }).click();
+    await frame.getByRole('button', { name: 'Define risk · Begin' }).click();
     await frame.getByRole('heading', { name: /simulated long entry is \$100/ }).waitFor();
     const desktop = await guide.locator('.guideAvatar').boundingBox();
     assert.ok(desktop && desktop.width > 40);
@@ -63,7 +69,7 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 850 });
     assert.equal(await guide.evaluate(region => region.getBoundingClientRect().right <= innerWidth), true);
     assert.deepEqual(errors, []);
-    console.log('PASS: editable assessment, distinct BTC/Gold exercises, answer-specific remediation, goal-specific follow-up, and evidence persistence.');
+    console.log('PASS: conversational introduction, first market review, distinct BTC/Gold exercises, answer-specific remediation, goal-specific follow-up, and evidence persistence.');
   } finally {
     await browser.close();
   }
