@@ -27,14 +27,16 @@ async function run() {
     await frame.getByLabel('How much chart practice do you have?', { exact: true }).selectOption({ label: 'Some chart practice' });
     await frame.getByLabel('What should we focus on?', { exact: true }).selectOption({ label: 'Risk' });
     await frame.getByRole('button', { name: 'Save learning assessment' }).click();
-    await frame.getByRole('button', { name: 'Build an AI tutoring prompt' }).click();
+    const guide = frame.getByRole('region', { name: 'GxB Academy Guide' });
+    await guide.getByText('Continue with your own AI assistant').click();
+    await guide.getByRole('button', { name: 'Build an AI tutoring prompt' }).click();
     const prompt = await frame.getByLabel('Academy tutoring prompt').inputValue();
     assert.match(prompt, /one question at a time/);
     assert.match(prompt, /Study longer-term entries/);
     assert.match(prompt, /Fear of missing out/);
     assert.match(prompt, /example\.com\/market-research/);
     await frame.getByRole('button', { name: 'Recommended: Define risk' }).click();
-    await frame.getByRole('heading', { name: /practice BTC long/ }).waitFor();
+    await guide.getByRole('heading', { name: /practice BTC long/ }).waitFor();
     await frame.getByRole('button', { name: '$50', exact: true }).click();
     await frame.getByRole('heading', { name: 'Quick follow-up' }).waitFor();
     await frame.getByRole('button', { name: 'The stop distance and the position size' }).click();
@@ -55,6 +57,11 @@ async function run() {
     await page.getByRole('link', { name: /^Gold/ }).click();
     await frame.getByRole('button', { name: 'Recommended: Define risk' }).click();
     await frame.getByRole('heading', { name: /simulated long entry is \$100/ }).waitFor();
+    const desktop = await guide.locator('.guideAvatar').boundingBox();
+    assert.ok(desktop && desktop.width > 40);
+    if (process.env.ACADEMY_SCREENSHOT) await page.screenshot({ path: process.env.ACADEMY_SCREENSHOT, fullPage: true });
+    await page.setViewportSize({ width: 390, height: 850 });
+    assert.equal(await guide.evaluate(region => region.getBoundingClientRect().right <= innerWidth), true);
     assert.deepEqual(errors, []);
     console.log('PASS: editable assessment, distinct BTC/Gold exercises, answer-specific remediation, goal-specific follow-up, and evidence persistence.');
   } finally {

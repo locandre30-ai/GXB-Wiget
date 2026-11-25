@@ -56,9 +56,30 @@
     body.embedded .arena { box-shadow: none; --maxW: 100%; background: #162337 }
     .academyAssessment { margin-bottom: 12px }
     .academyAssessment form { display: grid; gap: 8px; margin: 12px 0 }
-    .academyAssessment textarea:not([hidden]) { display: block; width: 100%; margin: 8px 0; padding: 8px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
+    .guideHandoff textarea:not([hidden]) { display: block; width: 100%; margin: 8px 0; padding: 8px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
     .academyAssessment label { display: grid; gap: 4px }
     .academyAssessment select { padding: 10px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
+    .academyLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(255px, 340px); gap: 18px; align-items: start }
+    .academySide { display: grid; gap: 14px; min-width: 0 }
+    .academyVisuals { min-width: 0 }
+    .academyGuide { min-width: 0; padding: 12px 0 0 }
+    .guideIdentity { display: flex; align-items: center; gap: 10px; color: var(--gold); margin-bottom: 14px }
+    .academyGuide .guideIdentity > strong { font-size: 1rem; line-height: 1.3; margin: 0 }
+    .academyVisuals figure > small { display: block }
+    .guideAvatar { width: 66px; height: 66px; flex: 0 0 66px; display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: 16px; border: 1px solid var(--gold); background: linear-gradient(150deg,#263852,#101a2a); color: var(--gold) }
+    .guideCrown { font-size: 22px; line-height: 20px }
+    .guideVisor { width: 29px; height: 12px; border: 1px solid #7186a4; border-radius: 6px; display: flex; justify-content: space-evenly; align-items: center; background: #0c1524 }
+    .guideVisor::before,.guideVisor::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--gold) }
+    .guideMark { font: 700 9px/1.3 ui-monospace,monospace; letter-spacing: .12em }
+    .guideBubble { position: relative; padding: 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #526481; background: #18263b }
+    .guideBubble::before { content: ''; position: absolute; top: -6px; left: 20px; width: 10px; height: 10px; transform: rotate(45deg); background: #18263b; border-top: 1px solid #526481; border-left: 1px solid #526481 }
+    .guideBubble h2 { font-size: 1.05rem; margin: 0 0 12px }
+    .guideBubble .homeProfiles { display: grid; gap: 6px }
+    .guideBubble .chip { text-align: left; white-space: normal; text-transform: none; letter-spacing: normal }
+    .guideBubble .missionFeedback { min-height: 0; padding: 0; margin: 12px 0; color: var(--ink) }
+    .guideBubble .missionFeedback:empty { display: none }
+    .guideHandoff > div { margin-top: 8px }
+    @media(max-width: 710px) { .academyLayout { grid-template-columns: minmax(0,1fr) } }
     .adaptiveSupport details { margin-bottom: 8px }
     body.embedded .home h1 { font-size: clamp(23px, 4vw, 34px); }
     body.embedded .home .journeyHero { text-align: left; margin: 0; padding: clamp(12px, 2vw, 24px); background: #162337; border-color: #34445c; border-radius: 10px; box-shadow: none; }
@@ -2304,6 +2325,33 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           saveState(ST);status.textContent='Assessment updated.';paint();
         };
         panel.append(heading,recommendation,next,details,el('small','Uses answers and simulated practice decisions saved to this profile.'));
+        const paper=paperLearningSummary(ST);
+        if(paper)panel.append(el('small',paper));
+        paint();
+        return panel;
+      }
+
+      function academyGuide(message){
+        const guide=el('section',undefined,'academyGuide');
+        guide.setAttribute('aria-label','GxB Academy Guide');
+        const identity=el('div',undefined,'guideIdentity');
+        const avatar=el('div',undefined,'guideAvatar');
+        avatar.setAttribute('aria-hidden','true');
+        avatar.append(el('span','♔','guideCrown'),el('span',undefined,'guideVisor'),el('span','GxB','guideMark'));
+        identity.append(avatar,el('strong','GxB Academy Guide'));
+        const bubble=el('div',undefined,'guideBubble');
+        bubble.append(message);
+        guide.append(identity,bubble);
+        return {guide,bubble};
+      }
+
+      function guideOverview(market){
+        const {guide,bubble}=academyGuide(el('p','Choose a lesson. I’ll ask one question at a time and help you work through your chart read.'));
+        const handoff=el('details',undefined,'guideHandoff');
+        handoff.append(el('summary','Continue with your own AI assistant'));
+        const panel=el('div');
+        handoff.append(panel);
+        bubble.append(handoff);
         const tutorPrompt=el('textarea');tutorPrompt.readOnly=true;tutorPrompt.hidden=true;tutorPrompt.rows=5;
         tutorPrompt.setAttribute('aria-label','Academy tutoring prompt');
         const copy=action('Copy tutoring prompt',async ()=>{
@@ -2323,10 +2371,25 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           ].join('\n');
           tutorPrompt.hidden=false;copy.hidden=false;tutorPrompt.focus();
         }),tutorPrompt,copy,tutorStatus);
-        const paper=paperLearningSummary(ST);
-        if(paper)panel.append(el('small',paper));
-        paint();
-        return panel;
+        return guide;
+      }
+
+      function academyJourney(){
+        const market=ST.journey.market;
+        const layout=el('div',undefined,'academyLayout');
+        const side=el('aside',undefined,'academySide');
+        side.append(guideOverview(market),assessmentPanel(market));
+        layout.append(journeyPanel(),side);
+        return layout;
+      }
+
+      function checkpointLayout(chart, guide, help){
+        const layout=el('div',undefined,'academyLayout');
+        const visuals=el('div',undefined,'academyVisuals');
+        visuals.append(chart);
+        if(help)visuals.append(help);
+        layout.append(visuals,guide);
+        return layout;
       }
 
       function adaptiveChoices({market,chapter,question,prompt,answers,correct,why,feedback,advance,finished,onMiss}){
@@ -2398,12 +2461,14 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           });
           choices.append(button);
         });
-        return [el('h2',prompt),choices,feedback,support];
+        const {guide,bubble}=academyGuide(el('h2',prompt));
+        bubble.append(choices,feedback,support);
+        return guide;
       }
 
       function academyHome(){
         home.replaceChildren();
-        home.append(assessmentPanel(ST.journey.market),journeyPanel());
+        home.append(academyJourney());
       }
       function mission(key){
         const m=MARKETS[key];let round=0,misses=0;
@@ -2420,9 +2485,10 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const [prompt,answers,correct,why]=reads[round];
           const feedback=el('p','Choose an answer to compare your read with the chart.','missionFeedback');
           feedback.setAttribute('aria-live','polite');
-          home.append(...adaptiveChoices({market:key,chapter:0,question:round,prompt,answers,correct,why,feedback,
+          const guide=adaptiveChoices({market:key,chapter:0,question:round,prompt,answers,correct,why,feedback,
             advance:()=>{round++;if(round<reads.length)draw();else complete();},
-            finished:round<reads.length-1?'Next chart →':'Complete mission →',onMiss:()=>misses++}));
+            finished:round<reads.length-1?'Next chart →':'Complete mission →',onMiss:()=>misses++});
+          home.append(checkpointLayout(skillChart(m,0,round),guide));
         }
         function complete(){const j=journeyState();if(!j.completed)j.completed={};if(!j.completed[key])j.completed[key]={date:new Date().toISOString(),version:1};j.market=key;saveState(ST);frame();home.append(el('h1','Your first market read is complete.'),el('p',`You explored ${m.name} and identified three market states.${misses?' You used feedback to work through the charts.':' You identified all three on your first attempt.'} This guided lesson is separate from your scored Arena sessions.`),action('Continue: Read the trend →',()=>skillMission(key,1),true),action('Return to my journey →',showHome),action('Try Free Practice →',train));}
         intro();
@@ -2532,9 +2598,10 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const [prompt,answers,correct,why]=lesson.questions[round];
           const card=el('section',undefined,'homeCard'),feedback=el('p','','missionFeedback');
           feedback.setAttribute('aria-live','polite');
-          card.append(skillChart(m,chapter,round),...adaptiveChoices({market:key,chapter,question:round,prompt,answers,correct,why,feedback,
+          const guide=adaptiveChoices({market:key,chapter,question:round,prompt,answers,correct,why,feedback,
             advance:()=>{round++;if(round<lesson.questions.length)draw();else finish();},
-            finished:round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →'}),setupHelp(chapter,round));
+            finished:round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →'});
+          card.append(checkpointLayout(skillChart(m,chapter,round),guide,setupHelp(chapter,round)));
           home.append(card);
         }
         function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter)){j.skills[key].push(chapter);j.skillDates??={};j.skillDates[key]??={};j.skillDates[key][chapter]=new Date().toISOString();}saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
@@ -2558,8 +2625,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         home.replaceChildren();
         const nav=el('nav'),tools=el('div',undefined,'homeTools');tools.append(iconAction('⚔','Enter the Arena →',train),iconAction(activeProfile().icon||'👤','Switch / create profile',profiles));nav.append(el('span','GXB / MY ARENA','eyebrow'),tools);home.append(nav);
         home.append(el('h1',`Welcome back, ${activeProfile().name}.`),el('p','Build your eye. Find your rhythm. Take the next step.'));
-        if(MARKETS[ST.journey?.market]) home.append(assessmentPanel(ST.journey.market));
-        home.append(journeyPanel());
+        home.append(MARKETS[ST.journey?.market]?academyJourney():journeyPanel());
         const persistent=typeof connection === 'undefined' || !connection.problem;
         home.append(el('p',persistent?'Saved in this browser · Synthetic training results':'Storage is unavailable. See the storage message before continuing.','homeStatus'));
         const grid=el('div',undefined,'homeGrid');
