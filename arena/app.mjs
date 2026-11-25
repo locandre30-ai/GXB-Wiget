@@ -65,7 +65,7 @@ function select(label, options, value) {
 }
 
 function route() {
-  const requested = location.hash.slice(1);
+  const requested = location.hash.slice(1).split('/')[0];
   if (!requested) return store.book.profiles[store.book.active]?.onboarded ? 'home' : 'entrance';
   if (!routes.has(requested) || (!guest && !store.book.active && requested !== 'settings')) return 'entrance';
   return requested;
@@ -158,6 +158,7 @@ function renderEntrance() {
     workspace.querySelector('input[name="nickname"], select')?.focus();
   }, 'quiet'));
   options.append(action('Guest practice', () => {
+    if (guest && guestBook) { go('practice'); return; }
     guest = true;
     guestBook = { active: 'guest', profiles: { guest: newProfile('Guest', experience) } };
     go('practice');
@@ -174,10 +175,10 @@ function renderEntrance() {
   workspace.append(panel);
 }
 
-function download() {
+function download(filename = 'gxb-arena-backup.json') {
   const url = URL.createObjectURL(new Blob([exportBook(store.book)], { type: 'application/json' }));
   const anchor = link('Download backup', url);
-  anchor.download = 'gxb-arena-backup.json';
+  anchor.download = filename;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -215,7 +216,7 @@ function renderSettings() {
   }
   const backup = node('section', undefined, 'panel stack');
   backup.append(node('h2', 'Backup and restore'), node('p', 'Export all saved profiles, preferences and training. Backups contain local profile names.'));
-  if (!guest) backup.append(action('Export backup', download));
+  if (!guest) backup.append(action('Export backup', () => download()));
   const form = node('form', undefined, 'stack');
   const field = node('label', 'Arena JSON backup', 'field');
   const file = node('input');
@@ -225,7 +226,7 @@ function renderSettings() {
   field.append(file);
   const replace = node('input');
   replace.type = 'checkbox';
-  const confirmation = node('label', ' Restore matching profile snapshots from this backup. Export current data first.');
+  const confirmation = node('label', ' Restore matching profiles. A copy of current data downloads first.');
   confirmation.prepend(replace);
   const submit = node('button', 'Import backup');
   submit.disabled = Boolean(store.problem);
@@ -240,6 +241,7 @@ function renderSettings() {
       const prior = store.book;
       const next = importBook(prior, serialized, replace.checked);
       const unchanged = JSON.stringify(prior) === JSON.stringify(next);
+      if (replace.checked && !unchanged) download('gxb-arena-before-restore.json');
       if (await store.save(next)) {
         choice = store.book.active;
         message = unchanged ? 'This backup is already present. No duplicate records were added.' : 'Backup imported.';
@@ -265,6 +267,7 @@ window.gxbTraining = {
     const id = snapshot.active;
     return {
       view,
+      market: element.dataset.market,
       book: { ...snapshot, profiles: { [id]: snapshot.profiles[id] } },
       save(updated) {
         if (guestAtConnect) {
@@ -284,12 +287,171 @@ window.gxbTraining = {
   }
 };
 
-function renderTraining(view) {
+function renderTraining(view, market) {
   frame = node('iframe', undefined, 'training');
   frame.dataset.view = view;
-  frame.title = 'Free Practice training';
+  if (market) frame.dataset.market = market;
+  frame.title = view === 'academy' ? 'Academy lesson workspace' : 'Free Practice training';
   frame.src = './practice.html?view=' + view;
   workspace.append(frame);
+}
+
+const lessons = ['Meet the market', 'Read the trend', 'Understand pullbacks', 'Define risk',
+  'Practice entries', 'Manage exits', 'Review a session'];
+const marketNames = { gold: 'Gold', bitcoin: 'Bitcoin', stocks: 'Stocks and ETFs' };
+
+function activeProfile() {
+  const book = guest ? guestBook : store.book;
+  return book.profiles[book.active];
+}
+
+function progressFor(state, market) {
+  const done = state.journey.skills[market] ?? [];
+  const first = Boolean(state.journey.completed[market]);
+  return { count: done.length + Number(first), next: !first ? 0 : lessons.findIndex((_, index) => index > 0 && !done.includes(index)) };
+}
+
+function chartAccuracy(state) {
+  return state.rounds ? Math.round(100 * state.correct / state.rounds) + '%' : '—';
+}
+
+function metric(label, value, detail) {
+  const card = node('article', undefined, 'metric panel');
+  card.append(node('span', label), node('strong', value), node('small', detail));
+  return card;
+}
+
+function marketButton(title, description, current, callback) {
+  const button = action('', callback, 'market');
+  button.setAttribute('aria-pressed', String(current));
+  button.append(node('strong', title), node('small', description));
+  return button;
+}
+
+function recent(state, full = false) {
+  const panel = node('section', undefined, 'panel activity');
+  panel.append(node('h2', full ? 'Completed session history' : 'Recent training activity'));
+  const events = state.history.map(record => ({
+    date: record.date,
+    title: record.focus,
+    detail: [record.grade, record.correct + '/' + record.rounds + ' correct',
+      record.r === undefined ? '' : (record.r > 0 ? '+' : '') + record.r.toFixed(1) + 'R',
+      record.scoringVersion ? 'Legacy scoring v' + record.scoringVersion : 'Legacy scoring version unrecorded']
+      .filter(Boolean).join(' · ')
+  }));
+  if (!full) {
+    for (const [key, completion] of Object.entries(state.journey.completed)) {
+      if (completion.date) events.push({ date: completion.date, title: marketNames[key] + ' · Meet the market', detail: 'Academy lesson completed' });
+    }
+  }
+  if (!full) {
+    for (const [key, dates] of Object.entries(state.journey.skillDates)) {
+      for (const [lesson, date] of Object.entries(dates)) {
+        events.push({ date, title: marketNames[key] + ' · ' + lessons[lesson], detail: 'Academy lesson completed' });
+      }
+    }
+  }
+  events.sort((a, b) => b.date.localeCompare(a.date));
+  if (!events.length) panel.append(node('p', full ? 'No individual session records are available. Recorded totals are shown separately.' : 'Completed sessions and dated lessons will appear here.'));
+  for (const event of full ? events : events.slice(0, 5)) {
+    const row = node('article', undefined, 'record');
+    const date = node('time', new Date(event.date).toLocaleDateString());
+    date.dateTime = event.date;
+    row.append(node('strong', event.title), date, node('small', event.detail));
+    panel.append(row);
+  }
+  return panel;
+}
+
+function renderHome() {
+  const profile = activeProfile();
+  const state = profile.state;
+  const track = state.journey.market ?? 'gold';
+  const progress = progressFor(state, track);
+  const heading = node('section', undefined, 'welcome');
+  heading.append(node('h2', 'Welcome' + (guest ? ', Guest.' : ' back, ' + profile.name + '.')),
+    node('p', (profile.experience === 'experienced' ? 'Independent Practice' : 'Guided Learning') +
+      ' · Focus: ' + (state.draft ? state.draft.focus : marketNames[profile.market])));
+  if (profile.origin === 'legacy-device') heading.append(node('small', 'Imported device history · Original trader was not recorded.'));
+  const metrics = node('section', undefined, 'metrics');
+  metrics.setAttribute('aria-label', 'Training metrics');
+  metrics.append(metric('Academy progress', progress.count + ' / 7', marketNames[track] + ' track'),
+    metric('Recorded sessions', String(state.sessions), state.history.length + ' with saved details'),
+    metric('Drill accuracy', chartAccuracy(state), state.rounds + ' recorded decisions'));
+  const markets = node('section', undefined, 'panel');
+  const marketGrid = node('div', undefined, 'two');
+  markets.append(node('h2', 'Select your market'), marketGrid);
+  for (const [id, detail] of [['gold', 'XAU/USD · Gold Academy available'], ['stocks', 'Equities & ETFs · Stock-specific simulation planned']]) {
+    marketGrid.append(marketButton(marketNames[id], detail, profile.market === id, async () => {
+      const book = guest ? guestBook : store.book;
+      book.profiles[book.active].market = id;
+      if (guest || await store.save(book)) {
+        render();
+        workspace.querySelector('.market[aria-pressed="true"]')?.focus();
+      }
+    }));
+  }
+  const actions = node('section', undefined, 'panel stack');
+  const academyLink = link(progress.next < 0 ? 'Review the ' + marketNames[track] + ' Academy' :
+    'Academy · ' + lessons[progress.next], '#academy/' + track);
+  const practiceLink = link(state.draft ? 'Resume practice draft' : 'Open Free Practice', '#practice', 'button primary');
+  actions.append(node('h2', 'Next exercises'));
+  if (profile.experience === 'experienced' || state.draft) actions.append(practiceLink, academyLink);
+  else actions.append(academyLink, practiceLink);
+  if (state.draft) actions.append(node('small', state.draft.session.results.length + ' of 10 decisions saved · ' + state.draft.focus));
+  actions.append(link('Review recorded performance', '#performance'));
+  const columns = node('div', undefined, 'two workspace-columns');
+  columns.append(actions, recent(state));
+  const availability = node('section', undefined, 'panel availability');
+  availability.append(node('h2', 'Market Studio and portfolios'),
+    node('p', 'Market Studio replay, a Stocks and ETFs portfolio, and an independent Gold portfolio are planned. Free Practice runs synthetic drills today.'));
+  workspace.append(heading, metrics, markets, columns, availability);
+}
+
+function renderAcademy() {
+  const state = activeProfile().state;
+  const market = location.hash.split('/')[1];
+  const choices = node('section', undefined, 'panel');
+  choices.append(node('p', 'Seven guided lessons per track, from reading price to reviewing a session.'));
+  const list = node('div', undefined, 'two');
+  for (const id of ['gold', 'bitcoin']) {
+    const info = progressFor(state, id);
+    const option = link(marketNames[id] + ' · ' + info.count + ' / 7 complete', '#academy/' + id, 'button market');
+    if (id === market) option.setAttribute('aria-current', 'true');
+    list.append(option);
+  }
+  choices.append(list);
+  workspace.append(choices);
+  if (['gold', 'bitcoin'].includes(market)) renderTraining('academy', market);
+}
+
+function renderPractice() {
+  const state = activeProfile().state;
+  const panel = node('section', undefined, 'panel practice-note');
+  panel.append(node('p', 'Five synthetic chart drills · 10 rounds · Guided or Pro · Legacy drill scoring'));
+  if (state.draft) panel.append(node('small', 'Resuming saved draft · ' + state.draft.session.results.length + ' of 10 decisions recorded.'));
+  else panel.append(node('small', 'Your session saves as you go. Stock-specific replay is planned for Market Studio.'));
+  workspace.append(panel);
+  renderTraining('practice');
+}
+
+function renderPerformance() {
+  const state = activeProfile().state;
+  const metrics = node('section', undefined, 'metrics');
+  metrics.append(metric('Recorded sessions', String(state.sessions), state.history.length + ' with saved details'),
+    metric('Drill accuracy', chartAccuracy(state), state.rounds + ' recorded decisions'),
+    metric('Experience', state.xp + ' XP', state.dayStreak + '-day streak · Best combo ×' + state.bestCombo));
+  const skills = node('section', undefined, 'panel activity');
+  skills.append(node('h2', 'Accuracy by drill'));
+  for (const [name, score] of Object.entries(state.skills)) {
+    if (!score.rounds) continue;
+    const row = node('article', undefined, 'record');
+    row.append(node('strong', name), node('span', Math.round(100 * score.correct / score.rounds) + '%'),
+      node('small', score.correct + ' / ' + score.rounds + ' correct · ' + score.rCount + ' scored trade decisions'));
+    skills.append(row);
+  }
+  if (skills.children.length === 1) skills.append(node('p', 'No scored drills recorded yet.'));
+  workspace.append(node('p', 'Accuracy, grades and R come from synthetic legacy drills.'), metrics, skills, recent(state, true));
 }
 
 function render(focus = false) {
@@ -312,7 +474,10 @@ function render(focus = false) {
     if (navigation.hidden) workspace.append(link('Back to entrance', '#entrance'));
     renderSettings();
   }
-  if (page === 'practice') renderTraining('practice');
+  if (page === 'home') renderHome();
+  if (page === 'academy') renderAcademy();
+  if (page === 'practice') renderPractice();
+  if (page === 'performance') renderPerformance();
   status();
   if (focus) workspace.focus();
 }

@@ -53,6 +53,16 @@
     body.loading .wrap { display: none }
     #trainingStatus:not([hidden]) { border: 1px solid #a97758; padding: 10px; margin: 10px; color: #ffceb4 }
     body.embedded { display: block; min-height: 0; height: auto; background: #101a2a }
+    body.embedded .arena { box-shadow: none; --maxW: 100%; background: #162337 }
+    body.embedded .home h1 { font-size: clamp(23px, 4vw, 34px); }
+    body.embedded .home .journeyHero { text-align: left; margin: 0; padding: clamp(12px, 2vw, 24px); background: #162337; border-color: #34445c; border-radius: 10px; box-shadow: none; }
+    body.embedded .journeyHero h2 { font-size: clamp(20px, 3vw, 27px); margin: 4px 0; }
+    body.embedded .journeyHero > p { margin-inline: 0; }
+    body.embedded .journeyHero > .homePrimary { margin: 8px 0 14px; border-radius: 8px; }
+    body.embedded .journeyHero .pathRow { padding: 7px 0; }
+    body.embedded .journeyHero .pathRow button { text-transform: none; letter-spacing: normal; min-height: 40px; border-radius: 8px; }
+    body.embedded h1 .glint { color: #f2f4fa; background: none; -webkit-text-fill-color: currentColor; }
+    :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
     body.embedded .home { padding: clamp(12px, 2vw, 24px); }
     body.embedded #homeBack { position: static; margin: 10px 10px 0; }
     .wrap{ width:100%; padding: var(--pad); display:flex; justify-content:center; }
@@ -233,10 +243,6 @@
       color: var(--ink); font-family: inherit; font-size: 12px;
     }
     .profInput:focus{ outline:none; border-color: rgba(103,214,255,.55); }
-    .chip.danger{ border-color: rgba(255,107,139,.38); color: var(--dn); }
-    .chip.danger:hover{ border-color: rgba(255,107,139,.7); color: var(--dn); }
-    .profConfirm{ margin: 0 0 9px; font-size: 11.5px; line-height:1.55; color: var(--muted); }
-    .profConfirm{ margin: 9px 0 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     [hidden]{ display:none !important; }
 
     /* Guided briefing panel */
@@ -456,6 +462,7 @@
 
     /* Tappable glossary terms */
     .term{
+      background: none; border: 0; padding: 0; font: inherit;
       color: var(--diamond);
       border-bottom: 1px dotted rgba(103,214,255,.65);
       cursor: pointer;
@@ -557,12 +564,6 @@
               <input class="profInput" id="profName" type="text" maxlength="24" aria-label="Profile name" placeholder="Profile name">
               <button class="chip mini" id="profSave">Save</button>
             </div>
-            <button class="chip mini danger" id="profDel">Delete profile</button>
-            <p class="profConfirm" id="profConfirm" hidden>
-              Delete this profile and all of its reps? This cannot be undone.
-              <button class="chip mini danger" id="profDelYes">Yes, delete</button>
-              <button class="chip mini" id="profDelNo">Cancel</button>
-            </p>
           </div>
         </div>
       </div>
@@ -595,11 +596,11 @@
       </div>
       <div class="answers" id="answers"></div>
       <p class="verdict" id="verdict" aria-live="polite"></p>
-      <p class="hint">💡 Tap any <span class="term" data-term="glossary">dotted word</span> for the breakdown.</p>
+      <p class="hint">💡 Tap any <button type="button" class="term" data-term="glossary">dotted word</button> for the breakdown.</p>
 
       <div class="foot">
-        <span>GXB · Financial Command Center</span>
-        <a href="https://www.notion.so/c75b70521c584921b184d729950f4bb9" target="_blank" rel="noopener">Log session → Trading Journal</a>
+        <span>GxB · Synthetic drill training</span>
+        <span>Copy completed session logs from results</span>
       </div>
 
       <!-- Glossary bottom sheet -->
@@ -804,7 +805,7 @@
       runner:        ["Runner", "A winning position you leave open to capture more of the trend instead of banking early. Letting winners run (while stops protect you) is how good sessions become great ones."]
     };
     // Wrap a label in a tappable glossary term
-    const T = (key, label) => `<span class="term" data-term="${key}">${label}</span>`;
+    const T = (key, label) => `<button type="button" class="term" data-term="${key}">${label}</button>`;
 
     // Both entry points share the versioned local store. The embedded runner
     // receives a route-scoped connection from the Arena shell.
@@ -834,9 +835,10 @@
 
     // ---------- helpers ----------
     const $ = id => document.getElementById(id);
-    const rnd = (a,b) => a + Math.random()*(b-a);
+    let random = Math.random;
+    const rnd = (a,b) => a + random()*(b-a);
     const rndInt = (a,b) => Math.floor(rnd(a,b+1));
-    const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+    const pick = arr => arr[Math.floor(random()*arr.length)];
     const todayStr = () => new Date().toISOString().slice(0,10);
 
     function level(xp){ return 1 + Math.floor(Math.sqrt(xp/60)); }
@@ -853,7 +855,7 @@
       for(let i=0;i<n;i++){
         const o = p; let h = o, l = o;
         for(let s=0;s<4;s++){
-          p += drift + (Math.random()-0.5)*2*vol;
+          p += drift + (random()-0.5)*2*vol;
           if(p>h) h=p; if(p<l) l=p;
         }
         bars.push({o, h, l, c:p});
@@ -1173,13 +1175,13 @@
     }
 
     function scContinuation(){
-      const dir = Math.random()<.5 ? 1 : -1;
+      const dir = random()<.5 ? 1 : -1;
       // Shape decided FIRST, then the pullback is generated to physically match it,
       // so pullback depth / candle size are real evidence rather than decoration.
       // "mixed" exists on purpose: some tape genuinely has no tell, and the
       // briefing says so instead of implying a readable answer.
-      const shape = Math.random()<.4 ? "cont" : Math.random()<.67 ? "rev" : "mixed";
-      const want = shape==="mixed" ? (Math.random()<.5?"cont":"rev") : shape;
+      const shape = random()<.4 ? "cont" : random()<.67 ? "rev" : "mixed";
+      const want = shape==="mixed" ? (random()<.5?"cont":"rev") : shape;
       let bars, fut, truth, swingKeep, pbExtKeep, retrace=0, pbLen=0, bodyRatio=1;
       for(let a=0;a<60;a++){
         const trend = mkBars(22, dir*rnd(.35,.6), rnd(.8,1.2), 100);
@@ -1240,7 +1242,7 @@
     }
 
     function scEntries(){
-      const regime = Math.random()<.7 ? (Math.random()<.5?1:-1) : 0; // 0 = chop → skip is right
+      const regime = random()<.7 ? (random()<.5?1:-1) : 0; // 0 = chop → skip is right
       let bars, fut, A, truth, entry, stopDist;
       for(let a=0;a<80;a++){
         const drift = regime===0 ? 0 : regime*rnd(.3,.55);
@@ -1250,7 +1252,7 @@
         A = atr(bars);
         entry = bars[bars.length-1].c;
         stopDist = 1.2*A;
-        const keep = regime===0 ? Math.random()<.75 : Math.random()<.72;
+        const keep = regime===0 ? random()<.75 : random()<.72;
         fut = mkBars(14, regime===0 ? 0 : (keep?regime:-regime)*rnd(.3,.55), rnd(.8,1.2), entry);
         const rl = simTrade(1, entry, stopDist, fut);
         const rs = simTrade(-1, entry, stopDist, fut);
@@ -1295,8 +1297,8 @@
       // Outcome decided first, then the last 6 candles are physically shaped to
       // show it: full bodies closing near highs (hold pays) vs tiny bodies with
       // long upper wicks (the move is running off — bank it).
-      const shape = Math.random()<.42 ? "hold" : Math.random()<.72 ? "exit" : "mixed";
-      const want = shape==="mixed" ? (Math.random()<.5?"hold":"exit") : shape;
+      const shape = random()<.42 ? "hold" : random()<.72 ? "exit" : "mixed";
+      const want = shape==="mixed" ? (random()<.5?"hold":"exit") : shape;
       let bars, fut, truth, entryIdx, entry, A, bodyRatio=1, wickR=0;
       for(let a=0;a<60;a++){
         const run = mkBars(20, dir*rnd(.3,.5), rnd(.8,1.1), 100);
@@ -1352,7 +1354,7 @@
     }
 
     function scChase(){
-      const dir = Math.random()<.5 ? 1 : -1;
+      const dir = random()<.5 ? 1 : -1;
       let bars, fut, truth, entry, stopDist, A;
       for(let a=0;a<80;a++){
         const base = mkBars(14, dir*rnd(.1,.25), rnd(.7,1.0), 100);
@@ -1361,7 +1363,7 @@
         A = atr(bars);
         entry = bars[bars.length-1].c;
         stopDist = 1.2*A;
-        const revertFirst = Math.random()<.72; // extended moves usually breathe first
+        const revertFirst = random()<.72; // extended moves usually breathe first
         if(revertFirst){
           const pull = mkBars(rndInt(4,6), -dir*rnd(.4,.65), rnd(.7,1.0), entry);
           const resume = mkBars(8, dir*rnd(.25,.5), rnd(.8,1.1), pull[pull.length-1].c);
@@ -1428,9 +1430,7 @@
       if(!bars || !bars.length) return;
 
       const all = bars.concat(revealedFuture);
-      // include full future range so the scale doesn't jump during reveal
-      const scaleSet = sc && sc.future ? bars.concat(sc.future) : all;
-      let lo = Math.min(...scaleSet.map(b=>b.l)), hi = Math.max(...scaleSet.map(b=>b.h));
+      let lo = Math.min(...all.map(b=>b.l)), hi = Math.max(...all.map(b=>b.h));
       if(sc && sc.lines){
         for(const v of Object.values(sc.lines)){ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v);} }
       }
@@ -1441,7 +1441,7 @@
       const padY = (hi-lo)*0.08 || 1; lo -= padY; hi += padY;
 
       const mL = 8*DPR, mR = 8*DPR, mT = 10*DPR, mB = 10*DPR;
-      const total = bars.length + (sc && sc.future ? sc.future.length : 0);
+      const total = all.length;
       const cw = (W - mL - mR) / total;
       const bw = Math.max(2*DPR, cw*0.62);
       const y = p => mT + (hi-p)/(hi-lo) * (H-mT-mB);
@@ -1550,10 +1550,11 @@
     let CUR = null;   // current scenario
     let revealed = [];
     let answering = false;
+    let scenarioSeed = null;
 
     function newSession(){
       SES = {
-        round: 0, correct: 0, results: [],
+        id: crypto.randomUUID(), round: 0, correct: 0, results: [],
         rTotal: 0, combo: 0, bestCombo: 0,
         xpGained: 0, start: Date.now(),
         focusCounts: {},
@@ -1569,14 +1570,35 @@
       nextRound();
     }
 
-    function pickDrill(){
-      const name = FOCUS === "All Drills" ? pick(Object.keys(BUILDERS)) : FOCUS;
-      return BUILDERS[name]();
+    function pickDrill(seed){
+      // A draft stores a seed and the scoring checkpoint, never HTML or callbacks.
+      let sequence = seed;
+      random = () => {
+        sequence = (Math.imul(sequence, 1664525) + 1013904223) >>> 0;
+        return sequence / 4294967296;
+      };
+      try {
+        const name = FOCUS === "All Drills" ? pick(Object.keys(BUILDERS)) : FOCUS;
+        return BUILDERS[name]();
+      } finally {
+        random = Math.random;
+      }
+    }
+
+    function saveDraft(){
+      ST.draft = {version: 1, focus: FOCUS, seed: scenarioSeed, session: SES};
+      saveState(ST);
     }
 
     function nextRound(){
       SES.round++;
-      CUR = pickDrill();
+      scenarioSeed = crypto.getRandomValues(new Uint32Array(1))[0];
+      showRound();
+      saveDraft();
+    }
+
+    function showRound(){
+      CUR = pickDrill(scenarioSeed);
       revealed = [];
       answering = false;
       $("roundLbl").textContent = `Round ${SES.round} / ${ROUNDS_PER_SESSION}`;
@@ -1585,6 +1607,41 @@
       paintGuide();
       renderAnswers();
       redraw();
+    }
+
+    function resumePractice(){
+      if(!ST.draft){
+        FOCUS = FOCI[0];
+        paintFocus();
+        newSession();
+        return;
+      }
+      const draft = structuredClone(ST.draft);
+      FOCUS = draft.focus;
+      SES = draft.session;
+      scenarioSeed = draft.seed;
+      paintFocus();
+      paintSessionMeters();
+      $("summary").classList.remove("open");
+      $("logBox").style.display = "none";
+      if(scenarioSeed !== null) showRound();
+      else if(SES.round < ROUNDS_PER_SESSION) nextRound();
+      else {
+        CUR = null;
+        revealed = [];
+        $("roundLbl").textContent = "Round 10 / 10";
+        $("prompt").textContent = "All decisions saved.";
+        $("verdict").textContent = "Open session results to complete this draft.";
+        $("answers").replaceChildren();
+        paintGuide();
+        redraw();
+        appendRoundAction();
+      }
+    }
+
+    function paintSessionMeters(){
+      $("comboLbl").textContent = SES.combo>=2 ? `⚡ Combo x${SES.combo}` : "";
+      $("rLbl").textContent = `Session R: ${SES.rTotal>0?"+":""}${SES.rTotal.toFixed(1)}`;
     }
 
     function paintGuide(){
@@ -1687,7 +1744,8 @@
         btnEl.classList.add("bad");
       }
       ST.rounds++; if(correct) ST.correct++;
-      saveState(ST);
+      scenarioSeed = null;
+      saveDraft();
       paintMeters();
 
       // verdict
@@ -1708,10 +1766,12 @@
           ? `<br><span style="color:var(--holoA)">⚖️ That setup was flagged <b>low-conviction</b> — the evidence genuinely didn't favor either side. Your read was defensible; this is exactly why stops exist.</span>` : "") +
         (ST.mode==="guided" && CUR.lesson ? `<br><span style="color:var(--gold)">🧭 ${CUR.lesson}</span>` : "");
 
-      $("comboLbl").textContent = SES.combo>=2 ? `⚡ Combo x${SES.combo}` : "";
-      $("rLbl").textContent = `Session R: ${SES.rTotal>0?"+":""}${SES.rTotal.toFixed(1)}`;
+      paintSessionMeters();
+      appendRoundAction();
+      answering = false;
+    }
 
-      // next / finish button
+    function appendRoundAction(){
       const box = $("answers");
       const nb = document.createElement("button");
       nb.className = "btn next";
@@ -1719,7 +1779,6 @@
       nb.onclick = () => SES.round >= ROUNDS_PER_SESSION ? finishSession() : nextRound();
       box.appendChild(nb);
       nb.focus();
-      answering = false;
     }
 
     function popXP(text){
@@ -1759,11 +1818,12 @@
       }
       ST.sessions++;
       if(!Array.isArray(ST.history)) ST.history = [];
-      ST.history.push({date:new Date().toISOString(), focus:FOCUS, correct:SES.correct,
+      ST.history.push({id:SES.id, date:new Date().toISOString(), focus:FOCUS, correct:SES.correct,
         rounds:ROUNDS_PER_SESSION, r:SES.rTotal, grade, minutes:mins,
         xp:SES.xpGained, combo:SES.bestCombo,
         scored:SES.results.filter(r=>r.r !== null).length, scoringVersion:2});
       ST.bestCombo = Math.max(ST.bestCombo, SES.bestCombo);
+      delete ST.draft;
       saveState(ST);
       paintMeters();
 
@@ -1863,16 +1923,25 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       for(const f of FOCI){
         const c = document.createElement("button");
         c.className = "chip" + (f===FOCUS ? " on" : "");
+        c.dataset.focus = f;
         c.textContent = f === "Avoiding Chase Trades" ? "No-Chase Filter" : f;
         c.onclick = () => {
+          if(answering || (FOCUS === f && !SES.completed)) return;
+          if(ST.draft?.session.results.length && !confirm("Start a new drill session? Your recorded reps stay, but this draft will be replaced.")) return;
           FOCUS = f;
-          [...box.querySelectorAll(".chip")].forEach(x=>x.classList.remove("on"));
-          c.classList.add("on");
+          paintFocus();
           newSession();
         };
         box.appendChild(c);
       }
       buildSwatches(box);
+    }
+
+    function paintFocus(){
+      for(const chip of $("chips").querySelectorAll("[data-focus]")){
+        chip.classList.toggle("on", chip.dataset.focus === FOCUS);
+        chip.setAttribute("aria-pressed", String(chip.dataset.focus === FOCUS));
+      }
     }
 
     // Candle color themes — train the eye on the palette you trade with
@@ -1909,10 +1978,13 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     }
 
     // Shared bottom-of-top sheet: used by the glossary and by follow-up answers
+    let sheetTrigger;
     function openSheet(title, bodyHTML){
+      sheetTrigger = document.activeElement;
       $("glTitle").textContent = title;
       $("glBody").innerHTML = bodyHTML;
       $("gloss").classList.add("open");
+      $("gClose").focus();
     }
     // Glossary: tap any dotted term
     function openGloss(key){
@@ -1923,9 +1995,16 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     document.addEventListener("click", (e)=>{
       const t = e.target.closest(".term");
       if(t){ openGloss(t.dataset.term); return; }
-      if(e.target === $("gloss")) $("gloss").classList.remove("open");
+      if(e.target === $("gloss")) closeSheet();
     });
-    $("gClose").onclick = () => $("gloss").classList.remove("open");
+    function closeSheet(){
+      $("gloss").classList.remove("open");
+      sheetTrigger?.focus();
+    }
+    $("gClose").onclick = closeSheet;
+    document.addEventListener("keydown", e => {
+      if(e.key === "Escape" && $("gloss").classList.contains("open")) closeSheet();
+    });
 
     // Assist toggle: show/hide guide lines, persisted (always on in Guided mode)
     function paintAssist(){
@@ -1994,13 +2073,11 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       }
 
       $("profName").value = active.name;
-      $("profDel").hidden = true;
     }
 
     function openProfMenu(on){
       $("profMenu").hidden = !on;
       $("profBtn").setAttribute("aria-expanded", on ? "true" : "false");
-      if(!on) $("profConfirm").hidden = true;
     }
     $("profBtn").onclick = (e) => { e.stopPropagation(); openProfMenu($("profMenu").hidden); };
     // Clicks inside the menu never reach the outside-click handler. Containment
@@ -2022,7 +2099,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       paintMeters();
       paintSwatches();
       paintMode();    // repaints assist + briefing, then redraws
-      newSession();   // a mid-session switch must never bank reps to the new person
+      if (!document.querySelector(".wrap").hidden) resumePractice();
     }
 
     function switchProfile(id){
@@ -2076,7 +2153,6 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
     paintMode();
     new ResizeObserver(sizeCanvases).observe(chart);
     sizeCanvases();
-    newSession();
 
     if (embedded) {
       document.body.classList.add("embedded");
@@ -2142,8 +2218,13 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
       function action(text,fn,primary=false){const b=el('button',text,primary?'homePrimary':'chip');b.type='button';b.onclick=fn;return b;}
       function iconAction(icon,label,fn){const b=action(icon,fn);b.className='chip homeIcon';b.title=label;b.setAttribute('aria-label',label);return b;}
-      function showHome(){activeProfile().onboarded=true;saveState(ST);arena.hidden=true;back.hidden=true;home.hidden=false;openProfMenu(false);render();window.scrollTo(0,0);}
-      function train(){home.hidden=true;arena.hidden=false;back.hidden=false;newSession();sizeCanvases();document.querySelector('h1').focus?.();window.scrollTo(0,0);}
+      function showHome(){if(typeof embedded !== 'undefined' && embedded === 'academy'){academyHome();return;}activeProfile().onboarded=true;saveState(ST);arena.hidden=true;back.hidden=true;home.hidden=false;openProfMenu(false);render();window.scrollTo(0,0);}
+      function train(){
+        if(typeof embedded !== 'undefined' && embedded === 'academy'){ connection.exit('practice'); return; }
+        home.hidden=true;arena.hidden=false;back.hidden=typeof embedded !== 'undefined' && Boolean(embedded);
+        if(typeof resumePractice === 'function') resumePractice(); else newSession();
+        sizeCanvases();document.querySelector('.wrap h1')?.focus?.();window.scrollTo(0,0);
+      }
       const MARKETS={
         gold:{name:'Gold',symbol:'XAU/USD',instrument:'XAU/USD · Gold / US dollar',description:'Explore a market shaped by global demand, economic news and changing expectations.',intro:'Gold is a physical asset. XAU/USD identifies gold priced in US dollars. Gold futures are different instruments with symbols such as GC and MGC; this lesson is a synthetic XAU/USD price study, not a futures contract simulation.',base:2400,unit:2},
         bitcoin:{name:'Bitcoin',symbol:'BTC/USD',instrument:'BTC/USD · Bitcoin / US dollar',description:'Start with Bitcoin. Learn how price moves, how trends form and when to wait.',intro:'Bitcoin is a digital asset traded on exchanges. BTC/USD identifies Bitcoin priced in US dollars. Prices can differ between venues, and movement can be sharp. Your first task is observation.',base:60000,unit:100}
@@ -2166,14 +2247,19 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       }
       function journeyPanel(){
         const j=journeyState(),m=MARKETS[j.market],section=el('section',undefined,'journeyHero');
-        section.append(el('div','Begin your trading journey','eyebrow'));
+        if(typeof embedded === 'undefined' || !embedded) section.append(el('div','Begin your trading journey','eyebrow'));
         if(!m){section.append(el('h2','Every journey begins with the first read.'));const reveal=el('details',undefined,'journeyReveal'),toggle=el('summary','Start Here');toggle.title='Start Here';toggle.setAttribute('aria-label','Start Here');reveal.append(toggle,el('p','Read the market, learn its charts, practice making thoughtful decisions.'),marketCards());section.append(reveal);return section;}
         const done=!!(j.completed&&j.completed[j.market]);
         const next=done?PATH.findIndex((_,i)=>i>0&&!j.skills?.[j.market]?.includes(i)):0;
-        section.append(el('h2',`${m.symbol} ${m.name} journey`),el('p',next<0?'You have explored every introductory skill. Keep practicing, or revisit any lesson below.':`Up next: ${PATH[next]}. Continue whenever you are ready.`),action(next===0?'Begin first mission →':next<0?'Continue in Free Practice →':`Continue: ${PATH[next]} →`,()=>next===0?mission(j.market):next<0?train():skillMission(j.market,next),true),action('Change market',chooseMarket));
+        section.append(el('h2',`${m.symbol} ${m.name} journey`),el('p',next<0?'You have explored every introductory skill. Keep practicing, or revisit any lesson below.':`Up next: ${PATH[next]}. Continue whenever you are ready.`),action(next===0?'Begin first mission →':next<0?'Continue in Free Practice →':`Continue: ${PATH[next]} →`,()=>next===0?mission(j.market):next<0?train():skillMission(j.market,next),true));
+        if(typeof embedded === 'undefined' || !embedded) section.append(action('Change market',chooseMarket));
         const path=el('div');
         PATH.forEach((name,i)=>{const row=el('div',undefined,'pathRow'),finished=i===0?done:!!j.skills?.[j.market]?.includes(i);row.append(el('span',finished?'✓':String(i+1),'pathDot'),action(name+(finished?' · Review':' · Begin'),()=>i===0?mission(j.market):skillMission(j.market,i)));path.append(row);});
         section.append(path,el('small','Explore any skill at your own pace. Lesson completion marks practice, not trading readiness.'));return section;
+      }
+      function academyHome(){
+        home.replaceChildren();
+        home.append(journeyPanel());
       }
       function mission(key){
         const m=MARKETS[key];let round=0,answered=false,misses=0;
@@ -2290,7 +2376,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         const lesson=lessons[chapter];let round=0;
         function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / SKILL ${chapter+1}`,'eyebrow'),action('← My journey',showHome),el('h1',PATH[chapter]));window.scrollTo(0,0);}
         function draw(){frame();home.append(el('p',lesson.intro),el('small',`Guided checkpoint ${round+1} of ${lesson.questions.length} · synthetic teaching examples`,'checkpointLabel'));const [prompt,answers,correct,why]=lesson.questions[round],card=el('section',undefined,'homeCard'),choices=el('div',undefined,'homeProfiles'),feedback=el('p','','missionFeedback');feedback.setAttribute('aria-live','polite');card.append(skillChart(m,chapter,round),el('h2',prompt));let resolved=false;answers.forEach((answer,i)=>choices.append(action(answer,()=>{if(resolved)return;if(i!==correct){feedback.textContent='Reconsider: '+why;return;}resolved=true;for(const b of choices.children)b.disabled=true;feedback.textContent='That’s it. '+why;card.append(action(round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →',()=>{round++;if(round<lesson.questions.length)draw();else finish();},true));})));card.append(choices,feedback,setupHelp(chapter,round));home.append(card);}
-        function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter))j.skills[key].push(chapter);saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
+        function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter)){j.skills[key].push(chapter);j.skillDates??={};j.skillDates[key]??={};j.skillDates[key][chapter]=new Date().toISOString();}saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
         draw();
       }
       function profiles(){
@@ -2333,6 +2419,13 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         train();
         back.textContent = '← Command Center';
         back.onclick = () => { if(!answering) connection.exit('home'); };
+      } else if(typeof embedded !== 'undefined' && embedded === 'academy'){
+        const market = connection.market;
+        if(ST.journey.market !== market){
+          ST.journey.market = market;
+          saveState(ST);
+        }
+        academyHome();
       } else if(activeProfile().onboarded) showHome(); else profiles();
     }
     document.body.classList.remove("loading");

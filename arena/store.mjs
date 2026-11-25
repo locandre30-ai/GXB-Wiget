@@ -32,7 +32,7 @@ export function cleanState(raw = {}, owner = 'local') {
       rSum: number(skill.rSum) ? skill.rSum : 0, rCount: count(skill.rCount) ? skill.rCount : 0 };
   }
   const journey = raw.journey ?? {};
-  state.journey = { completed: {}, skills: {} };
+  state.journey = { completed: {}, skills: {}, skillDates: {} };
   if (MARKETS.includes(journey.market)) state.journey.market = journey.market;
   for (const market of MARKETS) {
     const completed = journey.completed?.[market];
@@ -42,6 +42,8 @@ export function cleanState(raw = {}, owner = 'local') {
     }
     if (Array.isArray(journey.skills?.[market])) {
       state.journey.skills[market] = [...new Set(journey.skills[market].filter(i => Number.isInteger(i) && i >= 1 && i <= 6))];
+      const dates = state.journey.skills[market].filter(i => validDate(journey.skillDates?.[market]?.[i]));
+      if (dates.length) state.journey.skillDates[market] = Object.fromEntries(dates.map(i => [i, journey.skillDates[market][i]]));
     }
   }
   check(raw.history === undefined || Array.isArray(raw.history), 'Invalid session history.');
@@ -60,7 +62,10 @@ export function cleanState(raw = {}, owner = 'local') {
     for (const key of ['minutes', 'xp', 'combo', 'scored']) if (count(record[key])) item[key] = record[key];
     return item;
   });
-  if (raw.draft !== undefined) state.draft = cleanDraft(raw.draft);
+  if (raw.draft !== undefined) {
+    state.draft = cleanDraft(raw.draft);
+    check(!seen.has(state.draft.session.id), 'A completed session cannot also be a draft.');
+  }
   return state;
 }
 

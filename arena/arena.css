@@ -78,3 +78,28 @@ main > .panel + .panel { margin-top: 12px; }
   .paths { grid-template-columns: 1fr; }
 }
 .training { display: block; width: 100%; min-height: 320px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.welcome { margin: 12px 0 16px; }
+.welcome h2 { font-size: 1.45rem; }
+.metrics, .two { display: grid; gap: 12px; }
+.metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 12px 0; }
+.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.workspace-columns { margin: 12px 0; }
+.metric { display: grid; gap: 3px; padding-block: 12px; }
+.metric > span { color: var(--muted); }
+.metric strong { color: var(--gold); font-size: clamp(1.3rem, 2.7vw, 1.8rem); }
+.market { display: grid; gap: 3px; text-align: left; padding: 12px 14px; }
+.market[aria-pressed="true"], .market[aria-current="true"] { border-color: var(--gold); }
+.market small { display: block; }
+.record { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.record small { grid-column: 1 / -1; }
+.record time { color: var(--muted); }
+.practice-note { margin-bottom: 10px; padding-block: 10px; }
+.practice-note p { margin-bottom: 2px; }
+.training { margin-top: 12px; }
+.availability p { margin: 0; }
+@media (max-width: 660px) {
+  .workspace-columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

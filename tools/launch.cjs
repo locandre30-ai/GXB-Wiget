@@ -3,10 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {spawn} = require('node:child_process');
 const root = path.resolve(__dirname,'..');
-const url = 'http://127.0.0.1:8766/practice.html';
+const url = 'http://127.0.0.1:8766/arena.html';
 function healthy(){return new Promise(resolve=>{
   const req=http.get('http://127.0.0.1:8766/health',res=>{
-    let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>{try{resolve(res.statusCode===200&&JSON.parse(body).app==='gxb-local');}catch{resolve(false);}});
+    let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>{try{resolve(res.statusCode===200&&JSON.parse(body).app==='gxb-local'&&JSON.parse(body).version===2);}catch{resolve(false);}});
   });req.setTimeout(1000,()=>req.destroy());req.on('error',()=>resolve(false));
 });}
 (async()=>{
@@ -17,7 +17,7 @@ function healthy(){return new Promise(resolve=>{
     server.unref();fs.closeSync(out);fs.closeSync(err);
     for(let attempt=0;attempt<20&&!await healthy();attempt++)await new Promise(r=>setTimeout(r,250));
   }
-  if(!await healthy())throw new Error('GXB could not start. Port 8766 may be occupied. See preview-server-error.log.');
+  if(!await healthy())throw new Error('GXB could not start. Port 8766 may be occupied by an older preview. Stop the earlier GXB preview and try again. See preview-server-error.log.');
   console.log('GXB is ready: '+url);
   if(!process.argv.includes('--no-open')){
     // Fixed local URL, no user-controlled shell input.
