@@ -103,3 +103,25 @@ test('short fill, fee and slippage, manual next-open exit, and invalid commands'
   assert.equal(replay.snapshot().paper.closed[0].exit, 102 * 1.001);
   assert.equal(replay.snapshot().paper.realized, (101 * .999 - 102 * 1.001) * 4 - 2);
 });
+
+test('built-in weeks have five distinct days and can complete multiple simulated trades', async () => {
+  const { practiceWeek, practiceDay, WEEK_GOAL } = await import('../arena/studio-week.mjs');
+  for (const market of ['gold', 'stocks']) {
+    const { dataset, text } = practiceWeek(market);
+    assert.equal(practiceWeek(market).text, text);
+    assert.equal(dataset.bars.length, 30);
+    const replay = createReplay(dataset, market);
+    assert.equal(practiceDay(replay.snapshot().time), 1);
+    for (const side of ['long', 'short']) {
+      const close = replay.snapshot().latest.close;
+      replay.order({ type: 'entry', side, quantity: 1, stop: side === 'long' ? close - .1 : close + .1,
+        target: side === 'long' ? close + .1 : close - .1, fee: 0, slippage: 0 });
+      assert.equal(replay.snapshot().paper.position, null);
+      replay.step();
+      assert.equal(replay.snapshot().paper.position, null);
+    }
+    assert.equal(replay.snapshot().paper.closed.length, WEEK_GOAL[0]);
+    while (replay.step()) {}
+    assert.equal(practiceDay(replay.snapshot().time), 5);
+  }
+});

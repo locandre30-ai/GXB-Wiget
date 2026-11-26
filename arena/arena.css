@@ -248,3 +248,11 @@ a.academy-track-card:hover, .academy-directory-card:hover { border-color: var(--
 @media(max-width: 580px) {
   .academy-study-layout .academy-directory { grid-template-columns: minmax(0,1fr); }
 }
+
+.studio-week .actions { align-items: end; }
+.studio-week > p:empty { display: none; }
+.studio-week details .field { margin: 8px 0; }
+.studio-week-goal { color: var(--gold); }
+.studio-order-tools button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.studio-picking { cursor: crosshair; }
+.studio-order-label { font: 11px system-ui; }

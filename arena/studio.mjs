@@ -1,3 +1,4 @@
+import { practiceDay, practiceWeek, WEEK_GOAL } from './studio-week.mjs';
 import { createReplay, datasetId, displayIntervals, parseReplayFile } from './replay.mjs';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -39,7 +40,7 @@ function formatPrice(value) {
   return value.toLocaleString(undefined, { maximumFractionDigits: 8 });
 }
 
-function chart({ bars, range }) {
+function chart({ bars, range, paper }, pick) {
   const plot = svg('svg', { viewBox: '0 0 820 300', role: 'img', 'aria-label': 'Candlestick chart using revealed candles' });
   const spread = range.high - range.low || range.high * .01;
   const y = value => 20 + (range.high - value + spread * .05) / (spread * 1.1) * 260;
@@ -62,6 +63,37 @@ function chart({ bars, range }) {
         height: Math.max(1, Math.abs(y(bar.open) - y(bar.close))) }));
     plot.append(candle);
   }
+  const ticks = Math.min(5, bars.length);
+  for (let i = 0; i < ticks; i++) {
+    const index = ticks === 1 ? 0 : Math.round(i * (bars.length - 1) / (ticks - 1));
+    const tick = svg('text', { x: Math.max(38, Math.min(710, 12 + (index + .5) * bucket)), y: 294,
+      class: 'studio-tick', 'text-anchor': 'middle' });
+    const time = new Date(bars[index].time).toISOString();
+    tick.textContent = time.slice(5, 10) + ' ' + time.slice(11, 16);
+    plot.append(tick);
+  }
+  const order = paper.position ?? paper.pending;
+  for (const [label, price, color] of [
+    ['Entry', order?.entry, '#dcbb73'], ['Stop', order?.stop, '#ff8295'], ['Target', order?.target, '#44d4a6']
+  ]) {
+    if (!Number.isFinite(price) || y(price) < 20 || y(price) > 280) continue;
+    const axis = y(price);
+    plot.append(svg('line', { x1: 12, x2: 742, y1: axis, y2: axis, stroke: color, 'stroke-dasharray': '5 4' }));
+    const text = svg('text', { x: 18, y: axis - 4, fill: color, class: 'studio-order-label' });
+    text.textContent = label + ' ' + formatPrice(price);
+    plot.append(text);
+  }
+  if (pick) {
+    plot.classList.add('studio-picking');
+    plot.addEventListener('click', event => {
+      const matrix = plot.getScreenCTM();
+      if (!matrix) return;
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+      if (point.x < 12 || point.x > 742 || point.y < 20 || point.y > 280) return;
+      const price = range.high + spread * .05 - (point.y - 20) / 260 * spread * 1.1;
+      pick(Number(price.toFixed(2)));
+    });
+  }
   return plot;
 }
 
@@ -79,7 +111,7 @@ function paperPanel(replay, repaint, observe) {
   card.append(element('h2', 'Paper execution'), element('small', 'One simulated position per replay. Entries and manual exits use the next revealed open. Stop wins an ambiguous stop/target bar. New simulated decisions inform your Academy learning plan.'));
   const form = element('form', undefined, 'stack');
   const fields = element('div', undefined, 'two');
-  const side = options([['long', 'Long'], ['short', 'Short']]);
+  const side = options([['long', 'Buy / Long'], ['short', 'Sell / Short']]);
   fields.append(field('Direction', side));
   const inputs = {};
   for (const [key, label, value] of [
@@ -126,6 +158,7 @@ function paperPanel(replay, repaint, observe) {
   card.append(form, actions, status, summary, history);
   return {
     card,
+    setLevel(key, price) { inputs[key].value = String(price); },
     paint(paper, ended) {
       submit.disabled = ended || Boolean(paper.pending || paper.position);
       cancel.hidden = !paper.pending;
@@ -151,6 +184,9 @@ function replayPanel(host, replay, observe) {
   const snapshot = replay.snapshot();
   const panel = element('section', undefined, 'panel stack studio-chart');
   const heading = element('h2', snapshot.metadata.market === 'gold' ? labelMarket.gold : snapshot.metadata.symbol + ' · ' + labelMarket.stocks);
+  const week = snapshot.metadata.practiceWeek === true;
+  let picking;
+  let timer;
   const info = element('p', undefined, 'studio-clock');
   const display = options(displayIntervals(snapshot.metadata.minutes).map(minutes => [minutes, minutes + ' min']));
   display.value = snapshot.minutes;
@@ -159,9 +195,35 @@ function replayPanel(host, replay, observe) {
   const checkpoint = element('button', 'Export checkpoint');
   checkpoint.type = 'button';
   checkpoint.onclick = () => downloadCheckpoint(replay);
+  const play = element('button', 'Play replay');
+  play.type = 'button';
+  function pause() {
+    if (timer) clearInterval(timer);
+    timer = undefined;
+    play.textContent = 'Play replay';
+  }
   const controls = element('div', undefined, 'actions');
-  controls.append(field('Chart interval', display), next, checkpoint);
+  controls.append(field('Chart interval', display), next, play, checkpoint);
   const plot = element('div', undefined, 'studio-plot');
+  const orderTools = element('div', undefined, 'actions studio-order-tools');
+  const goal = element('p', undefined, 'studio-week-goal');
+  const pickStatus = element('small');
+  pickStatus.setAttribute('role', 'status');
+  const levelButtons = {};
+  for (const [key, label] of [['stop', 'Pick stop on chart'], ['target', 'Pick target on chart']]) {
+    const button = element('button', label);
+    button.type = 'button';
+    button.setAttribute('aria-pressed', 'false');
+    button.onclick = () => {
+      pause();
+      picking = picking === key ? undefined : key;
+      pickStatus.textContent = picking ? 'Select a price inside the chart, or type it in the order ticket.' : '';
+      paint();
+    };
+    levelButtons[key] = button;
+    orderTools.append(button);
+  }
+  orderTools.append(pickStatus);
   const stats = element('p');
   const feedback = element('p');
   feedback.setAttribute('role', 'status');
@@ -173,27 +235,102 @@ function replayPanel(host, replay, observe) {
     stats.textContent = 'Latest input candle · Open ' + formatPrice(open) + ' · High ' + formatPrice(high) +
       ' · Low ' + formatPrice(low) + ' · Close ' + formatPrice(close) + ' · Volume ' + formatPrice(volume) +
       ' · SMA (5 closed chart candles) ' + (state.sma5 === null ? '—' : formatPrice(state.sma5));
-    plot.replaceChildren(chart(state));
+    if (week) {
+      const trades = state.paper.closed.length;
+      goal.textContent = 'Synthetic week · Day ' + practiceDay(state.time) + ' of 5 · ' + trades +
+        ' closed paper ' + (trades === 1 ? 'trade' : 'trades') + ' · Practice goal ' + WEEK_GOAL.join('–') +
+        (trades >= WEEK_GOAL[0] && trades <= WEEK_GOAL[1] ? ' · Goal reached' : '');
+    }
+    const bracketLocked = next.disabled || Boolean(state.paper.pending || state.paper.position);
+    if (bracketLocked) picking = undefined;
+    for (const [key, button] of Object.entries(levelButtons)) {
+      button.disabled = bracketLocked;
+      button.setAttribute('aria-pressed', String(picking === key));
+    }
+    plot.replaceChildren(chart(state, picking ? price => {
+      const key = picking;
+      paper.setLevel(key, price);
+      picking = undefined;
+      pickStatus.textContent = (key === 'stop' ? 'Stop' : 'Target') + ' set to ' + formatPrice(price) + '.';
+      paint();
+    } : null));
     paper.paint(state.paper, next.disabled);
   };
-  next.onclick = () => {
+  function advance() {
+    if (!panel.isConnected) { pause(); return; }
     if (!replay.step()) {
+      pause();
       next.disabled = true;
+      play.disabled = true;
       feedback.textContent = 'End of this dataset.';
       paint();
       return;
     }
     paint();
     feedback.textContent = info.textContent + ' · Close ' + formatPrice(replay.snapshot().latest.close);
+  }
+  next.onclick = () => { pause(); advance(); };
+  play.onclick = () => {
+    if (timer) pause();
+    else { timer = setInterval(advance, 550); play.textContent = 'Pause replay'; }
   };
   display.onchange = () => { replay.setInterval(Number(display.value)); paint(); };
   panel.append(heading, element('small', 'Source · ' + snapshot.metadata.source + ' · UTC · ' + snapshot.metadata.minutes + ' min input'),
-    controls, info, plot, stats, feedback, paper.card);
+    controls, info);
+  if (week) panel.append(goal);
+  panel.append(orderTools, plot, stats, feedback, paper.card);
   paint();
   host.replaceChildren(panel);
 }
 
 export function renderStudio(workspace, preferredMarket, owner, observe) {
+  const weekCard = element('section', undefined, 'panel stack studio-week');
+  weekCard.append(element('h2', 'Practice a trading week'),
+    element('p', 'Five simulated days. Practice two or three completed trades when your setup appears. You can finish the week with fewer if the setup never comes.'),
+    element('small', 'Synthetic data · Training only. Hourly candles, six per weekday.'));
+  const weekMarket = options(Object.entries(labelMarket));
+  weekMarket.value = preferredMarket;
+  const start = element('button', 'Start practice week', 'primary');
+  start.type = 'button';
+  const restoration = element('details');
+  restoration.append(element('summary', 'Restore a practice-week checkpoint'));
+  const checkpointFile = element('input');
+  checkpointFile.type = 'file';
+  checkpointFile.accept = '.json,application/json';
+  const restore = element('button', 'Restore practice week');
+  restore.type = 'button';
+  const weekStatus = element('p');
+  weekStatus.setAttribute('role', 'status');
+  restoration.append(field('Practice-week checkpoint file', checkpointFile), restore);
+  const weekActions = element('div', undefined, 'actions');
+  weekActions.append(field('Practice market', weekMarket), start);
+  weekCard.append(weekActions, restoration, weekStatus);
+  async function loadWeek(file) {
+    start.disabled = restore.disabled = true;
+    try {
+      if (file?.size > 2 * 1024 * 1024) throw new Error('Choose a valid Studio checkpoint file.');
+      const { dataset, text } = practiceWeek(weekMarket.value);
+      const id = await datasetId(text, dataset.metadata);
+      const checkpoint = file ? JSON.parse(await file.text()) : undefined;
+      const replay = createReplay(dataset, id, checkpoint);
+      if (!weekCard.isConnected) return;
+      current = { owner, replay };
+      replayPanel(output, replay, observe);
+      weekStatus.textContent = file ? 'Practice week restored.' : 'Practice week ready.';
+      output.querySelector('h2')?.scrollIntoView({ block: 'nearest' });
+    } catch (error) {
+      weekStatus.textContent = error.message;
+    } finally {
+      start.disabled = restore.disabled = false;
+    }
+  }
+  start.onclick = () => loadWeek();
+  restore.onclick = () => {
+    const file = checkpointFile.files[0];
+    if (file) loadWeek(file);
+    else weekStatus.textContent = 'Choose the checkpoint for this practice market.';
+  };
+
   const intro = element('section', undefined, 'panel stack');
   intro.append(element('h2', 'Load historical candles'),
     element('p', 'Replay a local OHLCV file one candle at a time. The chart and SMA use revealed data. Paper orders fill against the replay clock and produce separate Studio results.'),
@@ -233,7 +370,7 @@ export function renderStudio(workspace, preferredMarket, owner, observe) {
   const output = element('div', undefined, 'studio-output');
   if (current?.owner === owner) replayPanel(output, current.replay, observe);
   intro.append(form);
-  workspace.append(intro, output);
+  workspace.append(weekCard, intro, output);
   form.onsubmit = async event => {
     event.preventDefault();
     load.disabled = true;

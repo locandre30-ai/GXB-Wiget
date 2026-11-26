@@ -2,6 +2,14 @@
 
 Launch with `Start GXB.cmd` or run `node tools/preview.cjs` and open http://127.0.0.1:8766/arena.html#studio. Choose a profile first or enter as a guest. Market Studio is open on either training path.
 
+## Practice a trading week
+
+Choose Gold or Stocks and ETFs, then select **Start practice week**. This built-in scenario contains five synthetic trading days, with six hourly candles per day. Use **Reveal next candle** for a single step or **Play replay** and **Pause replay** to advance the clock. Trading two or three completed setups is a practice goal. It is also valid to let the week finish with fewer trades.
+
+Choose **Buy / Long** or **Sell / Short** and enter units. Use **Pick stop on chart** or **Pick target on chart** and click a visible price, or type exact prices into the ticket. The ticket queues a paper market entry for the next revealed open. Pending and active order levels within the visible chart range appear as guides.
+
+Use **Export checkpoint** to keep your place. To resume this built-in week, select the same market and open **Restore a practice-week checkpoint**. The built-in scenario provides repeatable training. Portfolio balances and positions across weeks are reserved for Portfolio Lab.
+
 ## Load candles
 
 Choose **Stocks and ETFs** or **XAU/USD Gold**. Enter a symbol for stocks and ETFs, name the data source, specify its input interval, and select the local CSV. The header is:

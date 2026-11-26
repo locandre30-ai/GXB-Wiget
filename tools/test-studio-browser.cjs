@@ -78,13 +78,42 @@ async function run() {
     assert.equal(await page.getByLabel('Instrument symbol').inputValue(), 'XAU/USD');
     await load(original);
     await page.getByRole('heading', { name: 'XAU/USD Gold' }).waitFor();
-    await page.getByRole('link', { name: 'Academy', exact: true }).click();
-    await page.getByRole('link', { name: /^Gold/ }).click();
-    await page.frameLocator('iframe').getByText(/2 paper entries queued/).waitFor();
+    await page.waitForFunction(() => {
+      const book = JSON.parse(localStorage.getItem('gxb_arena_v2_r1'));
+      return book.profiles[book.active].state.learning.paper.long === 2;
+    });
     await page.getByRole('link', { name: 'Performance', exact: true }).click();
     await page.getByText('0 with saved details', { exact: true }).waitFor();
+    await enterStudio();
+    await page.getByLabel('Practice market').selectOption('gold');
+    await page.getByRole('button', { name: 'Start practice week' }).click();
+    await page.getByText(/Synthetic week · Day 1 of 5/).waitFor();
+    await page.getByRole('button', { name: 'Pick stop on chart' }).click();
+    await page.setViewportSize({ width: 1360, height: 960 });
+    await chart.scrollIntoViewIfNeeded();
+    const bounds = await chart.boundingBox();
+    const mid = bounds.x + bounds.width * .35;
+    await page.mouse.click(mid, bounds.y + bounds.height * .65);
+    assert.ok(Number(await page.getByLabel('Stop price').inputValue()) > 0);
+    await page.getByRole('button', { name: 'Pick target on chart' }).click();
+    await page.mouse.click(mid, bounds.y + bounds.height * .25);
+    assert.ok(Number(await page.getByLabel('Target price').inputValue()) > Number(await page.getByLabel('Stop price').inputValue()));
+    await page.getByRole('button', { name: 'Play replay' }).click();
+    await page.getByRole('button', { name: 'Pause replay' }).click();
+    for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Reveal next candle' }).click();
+    await page.getByText(/Synthetic week · Day 2 of 5/).waitFor();
+    const weekDownload = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export checkpoint' }).click();
+    const weekFile = await weekDownload;
+    const weekBackup = fs.readFileSync(await weekFile.path());
+    await page.reload();
+    await page.getByLabel('Practice market').selectOption('gold');
+    await page.getByText('Restore a practice-week checkpoint', { exact: true }).click();
+    await page.getByLabel('Practice-week checkpoint file').setInputFiles({ name: 'week.json', mimeType: 'application/json', buffer: weekBackup });
+    await page.getByRole('button', { name: 'Restore practice week' }).click();
+    await page.getByText(/Synthetic week · Day 2 of 5/).waitFor();
     assert.deepEqual(errors, []);
-    console.log('PASS: Stocks and ETFs and Gold replay, visible-chart isolation, next-event-only paper fills, mobile layout, checkpoint reload, and separation from legacy scoring.');
+    console.log('PASS: Stocks and ETFs and Gold replay, visible-chart isolation, next-event-only paper fills, mobile layout, checkpoint reload, separation from legacy scoring, five-day practice, chart picking, and week checkpoint restore.');
   } finally {
     await browser.close();
   }
