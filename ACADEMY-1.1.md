@@ -15,7 +15,7 @@ The catalog starts empty. No educator links or videos are bundled. YouTube link 
 
 - **Market Archives** provides five cited historical case studies. Each includes a study exercise, personal notes, related videos from matching categories, and a place for a future replay association.
 - **Market Knowledge** provides twelve expandable concepts with practical context and links to matching videos. Selected topics link to official references.
-- **The Disciplined Trader** includes eight GxB reflections. Use the previous and next controls, save favorites, or add a personal reflection. The model has a future audio slot for original material.
+- The Academy landing page rotates GxB and personal reflections beside the study cards. Pause or advance the quote with the small controls. In **My Study Library → Manage reflections**, use the previous and next controls, save favorites, or add a personal reflection. The model has a future audio slot for original material.
 - **My Study Library** brings together bookmarks, notes, favorite reflections, saved videos and recent views for the active profile.
 
 Your study data is included in **Settings → Export backup** and in backup restore. Each profile has its own catalog and personal study activity. Guest study lasts for the tab session. Existing Gold and Bitcoin activity continues to use the existing training store.

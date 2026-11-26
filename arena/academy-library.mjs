@@ -5,7 +5,7 @@ export const STUDY_SECTIONS = {
   lounge: ['Learning Lounge', 'Watch and organize educational videos.', '▶'],
   archives: ['Market Archives', 'Study five moments that reshaped markets.', '◷'],
   knowledge: ['Market Knowledge', 'Explore concepts you’ll encounter again and again.', '≡'],
-  reflections: ['The Disciplined Trader', 'Pause, reflect, and build habits you can repeat.', '◇'],
+  reflections: ['Reflections', '', '◇'],
   library: ['My Study Library', 'Return to your saved resources and private study notes.', '☆']
 };
 
@@ -44,17 +44,53 @@ function select(options) {
   return dropdown;
 }
 
-export function academyDirectory() {
+export function academyDirectory(study) {
   const grid = el('section', undefined, 'academy-directory');
   grid.setAttribute('aria-label', 'Academy study areas');
   for (const [route, [title, description, glyph]] of Object.entries(STUDY_SECTIONS)) {
+    if (route === 'reflections') continue;
     const card = link(undefined, '#academy/' + route, 'panel academy-directory-card');
     const icon = el('span', glyph, 'academy-directory-icon');
     icon.setAttribute('aria-hidden', 'true');
     card.append(icon, el('h2', title), el('p', description));
     grid.append(card);
   }
-  return grid;
+  const layout = el('div', undefined, 'academy-study-layout');
+  layout.append(grid, ambientReflection(study.customReflections));
+  return layout;
+}
+
+function ambientReflection(custom) {
+  const reflections = [...REFLECTIONS, ...custom];
+  const card = el('aside', undefined, 'panel academy-quote');
+  card.setAttribute('aria-label', 'Academy reflection');
+  const mark = el('span', '“', 'academy-quote-mark');
+  mark.setAttribute('aria-hidden', 'true');
+  const quote = el('blockquote', reflections[0].text);
+  let index = 0;
+  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const next = () => {
+    index = (index + 1) % reflections.length;
+    quote.textContent = reflections[index].text;
+  };
+  const toggle = button('', () => { paused = !paused; paintToggle(); }, 'quote-control');
+  function paintToggle() {
+    toggle.textContent = paused ? '▶' : 'Ⅱ';
+    toggle.setAttribute('aria-label', paused ? 'Resume quote rotation' : 'Pause quote rotation');
+  }
+  const advance = button('→', next, 'quote-control');
+  advance.setAttribute('aria-label', 'Next quote');
+  const controls = el('div', undefined, 'quote-controls');
+  controls.append(toggle, advance);
+  paintToggle();
+  card.append(mark, quote, controls);
+  function tick() {
+    if (!card.isConnected) return;
+    if (!paused && !document.hidden && !card.contains(document.activeElement)) next();
+    setTimeout(tick, 14000);
+  }
+  setTimeout(tick, 14000);
+  return card;
 }
 
 export function renderStudySection(section, target, getStudy, save) {
@@ -414,6 +450,7 @@ export function renderStudySection(section, target, getStudy, save) {
     for (const [title, keys] of collections) {
       const panel = el('section', undefined, 'panel');
       panel.append(el('h3', title));
+      if (title === 'Favorite reflections') panel.append(link('Manage reflections', '#academy/reflections'), el('br'));
       if (!keys.length) panel.append(el('small', 'Nothing here yet.'));
       const list = el('ul');
       for (const key of keys) {

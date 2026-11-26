@@ -30,6 +30,7 @@ async function run() {
         } } }
       }));
     });
+    await page.clock.install();
     await page.goto(base + '#academy');
     const gold = page.getByRole('link', { name: /^Gold/ });
     const crypto = page.getByRole('link', { name: /^Cryptocurrency/ });
@@ -38,6 +39,19 @@ async function run() {
     assert.equal(await page.getByRole('link', { name: /^Stocks & ETFs/ }).count(), 0);
     await page.getByText('Structured curriculum in development').waitFor();
     assert.equal(await page.locator('.academy-track-art').evaluateAll(items => items.every(item => getComputedStyle(item).backgroundImage.startsWith('url("data:image/webp'))), true);
+    assert.equal(await page.getByRole('link', { name: /The Disciplined Trader/ }).count(), 0);
+    const quote = page.locator('.academy-quote blockquote');
+    await quote.getByText('I do not chase the market.', { exact: false }).waitFor();
+    await page.getByRole('button', { name: 'Next quote' }).click();
+    await quote.getByText('My capital is a resource.', { exact: false }).waitFor();
+    await page.getByRole('button', { name: 'Resume quote rotation' }).click();
+    await page.locator('#workspace').focus();
+    await page.clock.runFor(14100);
+    await quote.getByText('I observe before I act.', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Pause quote rotation' }).click();
+    await page.locator('#workspace').focus();
+    await page.clock.runFor(14100);
+    await quote.getByText('I observe before I act.', { exact: true }).waitFor();
     await capture('10-academy-landing');
     const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
     await gold.click();
@@ -92,7 +106,8 @@ async function run() {
     await page.getByText('Support and resistance', { exact: true }).click();
     await page.getByRole('button', { name: 'Save to study library' }).click();
     await page.getByText('Saved to My Study Library.').waitFor();
-    await page.goto(base + '#academy/reflections');
+    await page.goto(base + '#academy/library');
+    await page.getByRole('link', { name: 'Manage reflections' }).click();
     await page.getByRole('button', { name: 'Next reflection' }).click();
     await page.getByText('My capital is a resource. I allocate it with intention.').waitFor();
     await page.getByRole('button', { name: 'Save to study library' }).click();

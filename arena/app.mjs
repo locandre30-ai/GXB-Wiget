@@ -586,7 +586,7 @@ function renderAcademy() {
     grid.append(card);
   }
   journeys.append(grid);
-  workspace.append(intro, journeys, academyDirectory());
+  workspace.append(intro, journeys, academyDirectory(activeProfile().study));
 }
 
 function renderPractice() {
