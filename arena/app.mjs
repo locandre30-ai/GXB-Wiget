@@ -311,7 +311,7 @@ function renderTraining(view, market, lesson) {
   if (market) frame.dataset.market = market;
   if (/^[0-6]$/.test(lesson ?? "")) frame.dataset.lesson = lesson;
   frame.title = view === 'academy' ? 'Academy lesson workspace' : 'Free Practice training';
-  frame.src = './practice.html?view=' + view;
+  frame.src = './practice.html?v=chart-1&view=' + view;
   workspace.append(frame);
 }
 

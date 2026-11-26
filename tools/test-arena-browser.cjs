@@ -73,6 +73,37 @@ async function run() {
     assert.equal(await drill.getByRole('button', { name: '15m', exact: true }).getAttribute('aria-pressed'), 'true');
     await drill.getByText(/^15m · Simulated .+ · O /).waitFor();
     await drill.getByRole('button', { name: '5m', exact: true }).click();
+    const practiceChart = drill.locator('canvas#chart');
+    await practiceChart.scrollIntoViewIfNeeded();
+    const bounds = await practiceChart.boundingBox();
+    await practiceChart.evaluate(canvas => {
+      const context = canvas.getContext('2d');
+      const clear = context.clearRect.bind(context);
+      const label = context.fillText.bind(context);
+      context.clearRect = (...args) => { canvas.axisLabels = []; clear(...args); };
+      context.fillText = (value, ...args) => { canvas.axisLabels.push(value); label(value, ...args); };
+    });
+    await drill.getByRole('button', { name: 'Reset chart scale' }).click();
+    const axes = () => practiceChart.evaluate(canvas => {
+      const [hi,,,,lo] = canvas.axisLabels.slice(0,5).map(Number);
+      return {range:hi-lo, times:canvas.axisLabels.slice(5).filter(value => /^\d\d:\d\d$/.test(value))};
+    });
+    const fitted = await axes();
+    await page.mouse.move(bounds.x+bounds.width*.5,bounds.y+bounds.height*.5);
+    assert.ok((await axes()).times.length > fitted.times.length);
+    await page.mouse.wheel(0,-240);
+    await practiceChart.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    const zoomed = await axes();
+    assert.notDeepEqual(zoomed.times, fitted.times);
+    await practiceChart.evaluate(canvas => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(new WheelEvent('wheel', {clientX: rect.right-15, clientY: rect.top+rect.height/2, deltaY: -240, cancelable: true}));
+    });
+    const scaled = await axes();
+    assert.deepEqual(scaled.times.slice(0,-1), zoomed.times.slice(0,-1));
+    assert.ok(scaled.range < zoomed.range);
+    await drill.getByRole('button', { name: 'Reset chart scale' }).click();
+    assert.deepEqual(await axes(), fitted);
     assert.equal(await drill.getByRole('group', { name: 'Drill replay' }).isVisible(), false);
     await screenshot('04-practice-handoff');
     const glossary = drill.getByRole('button', { name: 'dotted word' });
