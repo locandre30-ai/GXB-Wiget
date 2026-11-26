@@ -1,13 +1,14 @@
+import { storageLock } from './storage-lock.mjs';
 import { renderPortfolioLab } from './portfolio-lab.mjs';
 import { savePortfolioWeek } from './portfolio.mjs';
-import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs';
+import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs?v=save-1';
 import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
-import { setupNavigation } from './navigation.mjs?v=mobile-2';
+import { setupNavigation } from './navigation.mjs?v=save-1';
 import { marketBrief, watchlist } from './market-watch.mjs';
-import { clearStudio, renderStudio } from './studio.mjs?v=mobile-2';
-import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs';
-import { LocalIdentity } from './identity.mjs';
+import { clearStudio, renderStudio } from './studio.mjs?v=save-1';
+import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs?v=save-1';
+import { LocalIdentity } from './identity.mjs?v=save-1';
 
 const workspace = document.querySelector('#workspace');
 const navigation = document.querySelector('#navigation');
@@ -25,11 +26,12 @@ function status(problem = store.problem) {
   storageStatus.classList.toggle('error', Boolean(problem));
   storageStatus.textContent = problem || (guest ? 'Guest session · Progress is held in memory while this Arena tab stays open.' :
     'Local storage ready · Profiles and training are saved in this browser.');
+  if (!guest && store.book.active) storageStatus.append(' ', link('Back up progress', '#settings', 'storage-backup'));
 }
 
 const store = await openStore({
   storage: { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) },
-  locks: navigator.locks,
+  locks: storageLock(),
   notify: problem => {
     storageStatus.classList.add('error');
     storageStatus.textContent = problem;
@@ -140,13 +142,18 @@ function renderEntrance() {
   const submit = node('button', creating ? 'Create profile and enter' : 'Continue to Command Center', 'primary');
   submit.type = 'submit';
   submit.disabled = Boolean(store.problem);
-  form.append(submit);
+  const saveStatus = node('p', store.problem, 'error');
+  saveStatus.setAttribute('role', 'status');
+  form.append(submit, saveStatus);
+  if (creating && guest) panel.append(node('p', 'Creating a profile keeps your current guest work in this browser.'));
   form.onsubmit = async event => {
     event.preventDefault();
     submit.disabled = true;
     try {
       const previousOwner = store.book.active;
-      const saved = creating ? await identity.create(input.value, experience) : await identity.select(choice, experience);
+      const saved = creating ? await identity.create(input.value, experience, guest ? guestBook.profiles.guest : undefined)
+        : await identity.select(choice, experience);
+      if (!saved) saveStatus.textContent = store.problem || 'The profile could not be saved. Try again before closing this tab.';
       if (saved) {
         if (guest || previousOwner !== store.book.active) clearStudio();
         guest = false;
@@ -155,8 +162,7 @@ function renderEntrance() {
         go('home');
       }
     } catch (error) {
-      message = error.message;
-      render(true);
+      saveStatus.textContent = error.message;
     } finally {
       submit.disabled = Boolean(store.problem);
     }
@@ -559,6 +565,8 @@ function renderAcademy() {
   const state = activeProfile().state;
   const [, page, target] = location.hash.split('/');
   if (Object.hasOwn(STUDY_SECTIONS, page)) {
+    if (guest) workspace.append(node('p', 'Guest study stays in this tab. Create a local profile before closing it to keep your library.', 'notice'),
+      link('Create or switch profile', '#entrance'));
     workspace.append(renderStudySection(page, target, () => activeProfile().study,
       update => updateProfile(profile => update(profile.study))));
     return;

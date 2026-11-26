@@ -223,7 +223,7 @@ async function run() {
     }, key);
     const blocked = await unavailable.newPage();
     await blocked.goto(base + '/arena.html');
-    await blocked.getByText(/Storage unavailable:.*test quota exhausted/).waitFor();
+    await blocked.getByText(/Storage unavailable:.*test quota exhausted/).first().waitFor();
     assert.equal(await blocked.getByRole('button', { name: 'Create profile and enter' }).isDisabled(), true);
     await blocked.getByRole('button', { name: 'Guest practice' }).click();
     const guestDrills = blocked.frameLocator('iframe');

@@ -33,3 +33,9 @@ test('study state round-trips per profile without changing Gold or Bitcoin journ
   assert.deepEqual(restored.profiles.two.study.entries, {});
   assert.equal(restored.profiles.two.study.videos.length, 0);
 });
+
+test('approved YouTube embed code is treated as input data', () => {
+  assert.equal(youtubeId('<iframe title="YouTube" src="https://www.youtube-nocookie.com/embed/Abcd_ef-123"></iframe>'), 'Abcd_ef-123');
+  assert.equal(youtubeId('<iframe src="https://youtube.com.evil.example/embed/Abcd_ef-123"></iframe>'), null);
+  assert.equal(youtubeId('<script src="https://www.youtube.com/embed/Abcd_ef-123"></script>'), null);
+});

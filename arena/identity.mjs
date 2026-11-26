@@ -25,10 +25,17 @@ export class LocalIdentity {
     return this.store.save(book);
   }
 
-  async create(name, experience) {
+  async create(name, experience, guestProfile) {
     const book = this.store.book;
     const id = crypto.randomUUID();
-    book.profiles[id] = newProfile(name, experience);
+    const profile = newProfile(name, experience);
+    if (guestProfile) {
+      const copy = structuredClone(guestProfile);
+      copy.state.mode = profile.state.mode;
+      Object.assign(profile, { state: copy.state, study: copy.study, portfolio: copy.portfolio,
+        watch: copy.watch, navOrder: copy.navOrder, market: copy.market });
+    }
+    book.profiles[id] = profile;
     book.active = id;
     return this.store.save(book);
   }

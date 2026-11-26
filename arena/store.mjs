@@ -185,6 +185,7 @@ export async function openStore({ storage, locks, notify = () => {} }) {
         book = migrate(storage);
         const initial = JSON.stringify(book);
         storage.setItem(KEY, initial);
+        check(storage.getItem(KEY) === initial, 'The browser did not retain the Arena data.');
         raw = initial;
       }
     });
@@ -204,7 +205,10 @@ export async function openStore({ storage, locks, notify = () => {} }) {
           await lock(() => {
             check(storage.getItem(KEY) === raw, 'Arena data changed in another tab. Reload this page before making more changes.');
             const serialized = JSON.stringify(validated);
-            if (serialized !== raw) storage.setItem(KEY, serialized);
+            if (serialized !== raw) {
+              storage.setItem(KEY, serialized);
+              check(storage.getItem(KEY) === serialized, 'The browser did not retain the save.');
+            }
             raw = serialized;
             book = validated;
           });

@@ -1,5 +1,5 @@
 import { ARCHIVES, KNOWLEDGE, REFLECTIONS } from './study-content.mjs';
-import { CATEGORIES, cleanVideo, DRILLS, LESSONS, LEVELS, touchStudy, VIDEO_MARKETS, youtubeId } from './study-store.mjs';
+import { CATEGORIES, cleanVideo, DRILLS, LESSONS, LEVELS, touchStudy, VIDEO_MARKETS, youtubeId } from './study-store.mjs?v=save-1';
 
 export const STUDY_SECTIONS = {
   lounge: ['Learning Lounge', 'Watch and organize educational videos.', '▶'],
@@ -187,13 +187,14 @@ export function renderStudySection(section, target, getStudy, save) {
     form.append(el('h3', existing ? 'Edit educational video' : 'Add educational video'));
     for (const [name, label, type, max, required] of [
       ['title', 'Video title', 'text', 120, true], ['educator', 'Educator or channel', 'text', 100, true],
-      ['url', 'YouTube video URL', 'url', 500, true], ['duration', 'Duration (optional)', 'text', 24, false],
+      ['url', 'YouTube video URL', null, 2500, true], ['duration', 'Duration (optional)', 'text', 24, false],
       ['description', 'Description', null, 800, false]
     ]) {
       const input = el(type ? 'input' : 'textarea');
       if (type) input.type = type;
       input.maxLength = max;
       input.required = required;
+      if (name === 'url') { input.rows = 2; input.autocapitalize = 'off'; input.spellcheck = false; input.placeholder = 'Paste a YouTube link or embed code'; }
       input.value = existing?.[name] ?? '';
       form.append(field(label, input, name));
     }
@@ -218,7 +219,7 @@ export function renderStudySection(section, target, getStudy, save) {
       event.preventDefault();
       const input = Object.fromEntries(new FormData(form));
       const video = cleanVideo({ ...input, id: existing?.id ?? crypto.randomUUID() });
-      if (!video) { error.textContent = 'Enter a title, an educator and a valid HTTPS YouTube video link.'; return; }
+      if (!video) { error.textContent = 'Enter a title, an educator and a valid HTTPS YouTube video link or embed code.'; return; }
       const catalog = getStudy().videos;
       if (catalog.some(item => !item.archived && item.id !== video.id && item.url === video.url)) {
         error.textContent = 'That video is already in your Learning Lounge.'; return;
@@ -230,6 +231,7 @@ export function renderStudySection(section, target, getStudy, save) {
           if (existing) study.videos = study.videos.map(item => item.id === video.id ? video : item);
           else study.videos.push(video);
         }, 'Resource saved.')) done();
+        else error.textContent = 'Resource wasn’t saved. Keep this form open and check the storage message before reloading.';
       } finally { submit.disabled = false; }
     };
     return form;

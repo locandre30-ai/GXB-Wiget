@@ -347,3 +347,6 @@ a.academy-track-card:hover, .academy-directory-card:hover { border-color: var(--
   .next-exercises .mobile-extra { display: none; }
   .next-exercises .primary { min-height: 44px; }
 }
+
+.entrance form > .error:empty, .study-editor > .error:empty { display: none; }
+.storage-backup { white-space: nowrap; }

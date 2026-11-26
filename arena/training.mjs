@@ -1,5 +1,6 @@
-import { openStore } from './store.mjs';
-export { cleanState } from './store.mjs';
+import { storageLock } from './storage-lock.mjs';
+import { openStore } from './store.mjs?v=save-1';
+export { cleanState } from './store.mjs?v=save-1';
 
 function report(problem) {
   const status = document.querySelector('#trainingStatus');
@@ -16,7 +17,7 @@ export async function connectTraining() {
   }
   const store = await openStore({
     storage: { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) },
-    locks: navigator.locks,
+    locks: storageLock(),
     notify: report
   });
   if (store.problem && !Object.keys(store.book.profiles).length) {

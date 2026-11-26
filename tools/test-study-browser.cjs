@@ -129,6 +129,7 @@ async function run() {
       assert.equal(await frame.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
     }
 
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await page.getByRole('link', { name: 'Switch profile' }).click();
     await page.getByRole('button', { name: 'Create local profile', exact: true }).click();
     await page.getByLabel('Local profile name').fill('Separate Learner');
@@ -141,6 +142,7 @@ async function run() {
     assert.equal(book.profiles.learner.state.journey.completed.bitcoin.version, 1);
     assert.deepEqual(book.profiles.learner.state.journey.skills.gold, [1]);
     const removal = book.profiles.learner.study.videos[0];
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await page.getByRole('link', { name: 'Switch profile' }).click();
     await page.getByLabel('Existing local trader profile').selectOption('learner');
     await page.getByRole('button', { name: 'Continue to Command Center' }).click();

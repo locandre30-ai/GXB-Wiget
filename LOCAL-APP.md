@@ -40,6 +40,10 @@ Migration validates profile ownership and session detail, tags records as legacy
 
 Migration can only see keys on the same browser origin. A prior account on another browser, hostname, port, file URL, or hosted site has separate storage. Local profiles share access to this browser and have no password protection.
 
+## Save reliably on iPhone
+
+Open the live Arena in the regular Safari browser and return to it there. Embedded or private browser sessions can use a separate storage area or discard data after closing. If you start as a guest, create a profile in that same tab to keep the work you have already done. **Back up progress** in the footer opens Settings. Export a backup after adding resources or completing a study session, and restore that backup to move your history between browser contexts or devices.
+
 ## Backup and recovery
 
 **Settings → Export backup** downloads a JSON copy of every saved profile, including preferences, progress, session records and supported drafts. Keep the file somewhere you control. On a new browser, use **Restore a backup** on the entrance. Import adds missing profiles and skips identical snapshots. If a matching profile has diverged, ordinary import stops before writing. To restore matching profiles from a backup, check the restore option. The app downloads a copy of the current data before attempting replacement. Unrelated profiles remain in place.

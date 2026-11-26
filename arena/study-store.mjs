@@ -8,7 +8,9 @@ const clip = (value, size) => typeof value === 'string' ? value.trim().slice(0, 
 
 export function youtubeId(value) {
   try {
-    const url = new URL(value.trim());
+    const input = value.trim();
+    const source = input.startsWith('<') ? input.match(/^<iframe\b[^>]*?\s+src\s*=\s*(["'])([^"'<>]+)\1/i)?.[2] : input;
+    const url = new URL(source);
     if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
     let id;
     if (url.hostname === 'youtu.be' && /^\/[^/]+$/.test(url.pathname)) id = url.pathname.slice(1);

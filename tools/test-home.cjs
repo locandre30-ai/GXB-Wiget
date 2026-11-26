@@ -29,7 +29,7 @@ assert.ok(all(home).some(e=>e.innerHTML&&e.innerHTML.includes('Bitcoin coin')));
 assert.equal(find('Edit name / icon'),undefined);
 find('Explore Gold →').onclick();assert.equal(context.ST.journey.market,'gold');
 find('Begin first mission →').onclick();assert.ok(find('What is day trading?'));
-find('Show me the chart →').onclick();find('Downtrend').onclick();assert.ok(find('Complete mission →')===undefined);assert.ok(find('Quick follow-up'));find('Several swing highs and lows').onclick();
+find('Show me the chart →').onclick();assert.equal(all(home).filter(e=>e.tag==='figure').length,1);find('Downtrend').onclick();assert.ok(find('Complete mission →')===undefined);assert.ok(find('Quick follow-up'));find('Several swing highs and lows').onclick();
 find('Uptrend').onclick();find('Next chart →').onclick();find('Downtrend').onclick();find('Next chart →').onclick();find('Consolidation').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.gold);assert.equal(context.ST.sessions,4);
 const chapters=[
@@ -70,6 +70,7 @@ assert.equal(context.ST.sessions,4);assert.ok(find('Continue in Free Practice �
 find('Return to my journey →').onclick();find('Change market').onclick();find('Explore Bitcoin →').onclick();
 assert.equal(context.ST.journey.market,'bitcoin');assert.equal(context.ST.journey.completed.bitcoin,undefined);assert.ok(context.ST.journey.completed.gold);
 find('Begin first mission →').onclick();find('Show me the chart →').onclick();
+assert.equal(all(home).filter(e=>e.tag==='figure').length,1);
 assert.ok(find('BTC trades around the clock. On this weekend example, what do progressively lower rallies and lows show?'));
 find('Lower highs and lower lows').onclick();find('Next chart →').onclick();find('Higher highs and higher lows').onclick();find('Next chart →').onclick();find('A range with no confirmed break').onclick();find('Complete mission →').onclick();
 assert.ok(context.ST.journey.completed.bitcoin);find('Return to my journey →').onclick();

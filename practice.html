@@ -716,7 +716,7 @@
     location.replace(new URL("./arena.html", location.href));
   } else
   (async () => {
-    const { connectTraining, cleanState } = await import("./arena/training.mjs");
+    const { connectTraining, cleanState } = await import("./arena/training.mjs?v=save-1");
     const { CHECK_INS, recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");
     const { cleanIntroduction, introductionReply, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions } = await import("./arena/learning.mjs");
     "use strict";
@@ -2679,7 +2679,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / MISSION 1`,'eyebrow'));home.append(action('← My journey',showHome));window.scrollTo(0,0);}
         function intro(){frame();home.append(el('h1','Meet the market.'),el('p',m.intro));const card=el('section',undefined,'homeCard');card.append(el('h2','What is day trading?'),el('p','Day trading means opening and closing a position within the same trading day. Your learning starts earlier: reading price, understanding risk, and knowing when to stay out.'),el('h2','Your first mission'),el('p','Read three small charts: uptrend, downtrend and consolidation. Each candle summarizes an opening price, a closing price, a high and a low. Here, teal candles close higher than they open; pink candles close lower. The wick shows the high and low.'),action('Show me the chart →',draw,true));home.append(card,el('small','Illustrative, synthetic prices in US dollars. This lesson is not a view of today’s market.'));}
         function draw(){
-          frame();home.append(el('h1',`Read ${round+1} of 3`),skillChart(m,0,round));
+          frame();home.append(el('h1',`Read ${round+1} of 3`));
           const [prompt,answers,correct,why]=reads[round];
           const feedback=el('p','Choose an answer to compare your read with the chart.','missionFeedback');
           feedback.setAttribute('aria-live','polite');
