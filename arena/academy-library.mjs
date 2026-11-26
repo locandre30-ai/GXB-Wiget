@@ -44,7 +44,7 @@ function select(options) {
   return dropdown;
 }
 
-export function academyDirectory(study) {
+export function academyDirectory() {
   const grid = el('section', undefined, 'academy-directory');
   grid.setAttribute('aria-label', 'Academy study areas');
   for (const [route, [title, description, glyph]] of Object.entries(STUDY_SECTIONS)) {
@@ -55,42 +55,24 @@ export function academyDirectory(study) {
     card.append(icon, el('h2', title), el('p', description));
     grid.append(card);
   }
-  const layout = el('div', undefined, 'academy-study-layout');
-  layout.append(grid, ambientReflection(study.customReflections));
-  return layout;
+  return grid;
 }
 
-function ambientReflection(custom) {
+export function ambientReflection(custom) {
   const reflections = [...REFLECTIONS, ...custom];
-  const card = el('aside', undefined, 'panel academy-quote');
-  card.setAttribute('aria-label', 'Academy reflection');
-  const mark = el('span', '“', 'academy-quote-mark');
-  mark.setAttribute('aria-hidden', 'true');
-  const quote = el('blockquote', reflections[0].text);
-  let index = 0;
-  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const next = () => {
-    index = (index + 1) % reflections.length;
-    quote.textContent = reflections[index].text;
-  };
-  const toggle = button('', () => { paused = !paused; paintToggle(); }, 'quote-control');
-  function paintToggle() {
-    toggle.textContent = paused ? '▶' : 'Ⅱ';
-    toggle.setAttribute('aria-label', paused ? 'Resume quote rotation' : 'Pause quote rotation');
-  }
-  const advance = button('→', next, 'quote-control');
-  advance.setAttribute('aria-label', 'Next quote');
-  const controls = el('div', undefined, 'quote-controls');
-  controls.append(toggle, advance);
-  paintToggle();
-  card.append(mark, quote, controls);
+  let index = Math.max(0, reflections.findIndex(item => item.text === 'I observe before I act.'));
+  const quote = el('blockquote', reflections[index].text, 'academy-quote');
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
   function tick() {
-    if (!card.isConnected) return;
-    if (!paused && !document.hidden && !card.contains(document.activeElement)) next();
+    if (!quote.isConnected) return;
+    if (!motion.matches && !document.hidden) {
+      index = (index + 1) % reflections.length;
+      quote.textContent = reflections[index].text;
+    }
     setTimeout(tick, 14000);
   }
   setTimeout(tick, 14000);
-  return card;
+  return quote;
 }
 
 export function renderStudySection(section, target, getStudy, save) {

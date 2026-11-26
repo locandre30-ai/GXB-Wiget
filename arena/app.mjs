@@ -1,7 +1,7 @@
 import { storageLock } from './storage-lock.mjs';
 import { renderPortfolioLab } from './portfolio-lab.mjs';
 import { savePortfolioWeek } from './portfolio.mjs';
-import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs?v=save-1';
+import { academyDirectory, ambientReflection, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs?v=quote-1';
 import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
 import { setupNavigation } from './navigation.mjs?v=save-1';
@@ -591,6 +591,7 @@ function renderAcademy() {
 
   const intro = node('section', undefined, 'panel academy-welcome');
   intro.append(node('h2', 'Knowledge before capital.'),
+    ambientReflection(activeProfile().study.customReflections),
     node('p', 'Explore the markets. Develop your understanding. Move with intention.'));
   const journeys = node('section', undefined, 'academy-journeys');
   journeys.append(node('h2', 'Market Journeys'));
@@ -613,7 +614,7 @@ function renderAcademy() {
     grid.append(card);
   }
   journeys.append(grid);
-  workspace.append(intro, journeys, academyDirectory(activeProfile().study));
+  workspace.append(intro, journeys, academyDirectory());
 }
 
 function renderPractice() {
