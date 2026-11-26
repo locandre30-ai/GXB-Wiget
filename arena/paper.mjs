@@ -1,8 +1,8 @@
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const positive = value => finite(value) && value > 0 && value <= 1e12;
 
-export function createPaperAccount() {
-  return { pending: null, position: null, closed: [], message: '' };
+export function createPaperAccount(funding = null) {
+  return { pending: null, position: null, closed: [], message: '', funding };
 }
 
 export function applyPaperCommand(account, command, bar) {
@@ -24,8 +24,17 @@ export function applyPaperCommand(account, command, bar) {
       (long ? !(stop < bar.close && bar.close < target) : !(target < bar.close && bar.close < stop))) {
     throw new Error('Use positive size and bracket the revealed close with valid stop and target prices. Slippage must be 0–1,000 bps.');
   }
+  if (requiredCash(bar.close, command) > buyingPower(account)) throw new Error('This order exceeds the account’s available paper cash.');
   account.pending = { type: 'entry', side, quantity, stop, target, fee, slippage };
   account.message = 'Paper entry queued for the next revealed open.';
+}
+
+function requiredCash(price, order) {
+  return price * order.quantity + 2 * order.fee;
+}
+
+function buyingPower(account) {
+  return account.funding === null ? Infinity : Math.max(0, account.funding + account.closed.reduce((total, trade) => total + trade.net, 0));
 }
 
 function priceWithSlippage(price, position, exiting) {
@@ -56,6 +65,10 @@ export function advancePaper(account, bar) {
       account.message = 'Paper entry canceled · next fill was outside the bracket.';
       return;
     }
+    if (requiredCash(entry, order) > buyingPower(account)) {
+      account.message = 'Paper entry canceled · next fill exceeded available paper cash.';
+      return;
+    }
     const { type, ...details } = order;
     account.position = { ...details, entry, entryTime: bar.time };
     account.message = 'Paper entry filled.';
@@ -68,6 +81,12 @@ export function advancePaper(account, bar) {
   // A bar carries no tick order. Resolve ambiguous stop/target touches at the stop.
   if (long ? bar.low <= stop : bar.high >= stop) return close(account, bar, stop, 'Stop');
   if (long ? bar.high >= target : bar.low <= target) close(account, bar, target, 'Target');
+}
+
+export function settlePaperWeek(account, last) {
+  account.pending = null;
+  if (account.position) close(account, last, last.close, 'Week-end settlement');
+  else account.message = 'Paper week complete.';
 }
 
 export function paperSnapshot(account, bar) {

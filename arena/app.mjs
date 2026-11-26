@@ -1,3 +1,5 @@
+import { renderPortfolioLab } from './portfolio-lab.mjs';
+import { savePortfolioWeek } from './portfolio.mjs';
 import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs';
 import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
@@ -10,7 +12,7 @@ import { LocalIdentity } from './identity.mjs';
 const workspace = document.querySelector('#workspace');
 const navigation = document.querySelector('#navigation');
 const storageStatus = document.querySelector('#storage');
-const routes = new Set(['entrance', 'home', 'academy', 'practice', 'studio', 'performance', 'settings']);
+const routes = new Set(['entrance', 'home', 'academy', 'practice', 'studio', 'portfolio', 'performance', 'settings']);
 
 let guest = false;
 let guestBook;
@@ -440,7 +442,7 @@ function renderHome() {
   next[0].classList.add('primary');
   actions.append(...next);
   if (state.draft) actions.append(node('small', state.draft.session.results.length + ' of 10 decisions saved · ' + state.draft.focus));
-  actions.append(link('Open Market Studio', '#studio'), link('Review recorded performance', '#performance'));
+  actions.append(link('Open Market Studio', '#studio'), link('Review recorded performance', '#performance'), link('Open Portfolio Lab', '#portfolio'));
   const columns = node('div', undefined, 'two workspace-columns');
   columns.append(actions, recent(state));
   const training = node('div', undefined, 'dashboard-main');
@@ -643,11 +645,25 @@ function render(focus = false) {
   if (page === 'home') renderHome();
   if (page === 'academy') renderAcademy();
   if (page === 'practice') renderPractice();
-  if (page === 'studio') renderStudio(workspace, activeProfile().market, guest ? 'guest' : store.book.active,
-    (command, market) => updateProfile(profile => {
+  if (page === 'studio') {
+    const selected = location.hash.split('/')[1];
+    const market = ['gold', 'stocks'].includes(selected) ? selected : activeProfile().market;
+    const recordDecision = (profile, command, market) => {
       recordPaperDecision(profile.state, command);
       recordActivity(profile.state.learning, { type: 'studio', market, action: command.type === 'entry' ? command.side : command.type });
-    }));
+    };
+    renderStudio(workspace, market, guest ? 'guest' : store.book.active,
+      (command, market) => updateProfile(profile => recordDecision(profile, command, market)),
+      {
+        get: market => activeProfile().portfolio[market],
+        save: (market, run, checkpoint, paper, command) => updateProfile(profile => {
+          savePortfolioWeek(profile.portfolio[market], run, checkpoint, paper);
+          if (command) recordDecision(profile, command, market);
+        })
+      });
+  }
+  if (page === 'portfolio') renderPortfolioLab(workspace, () => activeProfile().portfolio,
+    update => updateProfile(profile => update(profile.portfolio)));
   if (page === 'performance') renderPerformance();
   status();
   if (focus) workspace.focus();

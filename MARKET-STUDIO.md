@@ -8,7 +8,15 @@ Choose Gold or Stocks and ETFs, then select **Start practice week**. This built-
 
 Choose **Buy / Long** or **Sell / Short** and enter units. Use **Pick stop on chart** or **Pick target on chart** and click a visible price, or type exact prices into the ticket. The ticket queues a paper market entry for the next revealed open. Pending and active order levels within the visible chart range appear as guides.
 
-Use **Export checkpoint** to keep your place. To resume this built-in week, select the same market and open **Restore a practice-week checkpoint**. The built-in scenario provides repeatable training. Portfolio balances and positions across weeks are reserved for Portfolio Lab.
+Use **Export checkpoint** to keep your place. To resume this built-in week, select the same market and open **Restore a practice-week checkpoint**. The built-in scenario provides repeatable training. To keep the results in an ongoing paper account, use **Start linked practice week** with a Portfolio Lab account.
+
+## Connect a Portfolio Lab paper account
+
+Open **Portfolio Lab** and choose a starting USD paper balance for Gold, Stocks & ETFs, or both. The accounts and ledgers are separate. Open Market Studio for that market and choose **Start linked practice week**. A linked week saves the replay cursor, orders and settled trades in your local profile. After refresh, **Resume linked practice week** restores the open position and replay clock.
+
+The account reserves the position’s full notional plus both fees for long or short exposure. At entry the engine checks cash again at the actual simulated fill price. The Lab shows settled cash, available paper cash, marked equity and P/L based on the last revealed close, realized P/L, and fees. P/L is in simulated USD. A session can span multiple days and browser visits. At the final candle, **Settle paper week** cancels any unfilled order and closes any remaining position at the final revealed close with the configured slippage. Then you can add simulated funds or start another week using the carried cash balance and ledger.
+
+Settings backups include both accounts and the linked-week checkpoint. Linked account support covers the built-in synthetic weeks. CSV replays continue to have their own paper results. Broker accounts, leverage, real money, and position carry into a fresh scenario remain outside this workflow.
 
 ## Load candles
 
@@ -28,7 +36,7 @@ Reveal one candle at a time. The live chart, range and indicator read from the r
 
 - Market entries and manual exits fill at the next revealed open with configured adverse slippage. An entry is canceled if its slippage-adjusted fill falls outside the bracket.
 - A stop gapped through fills from the next open. A target gapped through uses the target price as its base fill. If a single candle touches both levels and neither is reached at its open, the stop takes precedence. Exit fills also include configured adverse slippage.
-- Studio reports marked and realized P/L in the price units of the input file, net of both fills’ fees. Closed paper trades use their own ledger and remain separate from Academy and legacy drill scoring. Cash constraints, margin, partial fills, FX conversion and broker-specific fee models remain outside this first Studio implementation.
+- Studio reports marked and realized P/L in the price units of the input file, net of both fills’ fees. Closed paper trades use their own ledger and remain separate from Academy and legacy drill scoring. CSV replays use an unlinked paper ledger. Margin, partial fills, FX conversion and broker-specific fees remain outside this implementation.
 
 **Export checkpoint** saves the replay cursor, display interval, and paper action log. To resume after closing or refreshing the tab, load the exact same CSV and dataset metadata alongside that checkpoint. The SHA-256 dataset identifier detects mismatches. Instrument data and paper history live in the tab until exported. The checkpoint contains no candle file.
 

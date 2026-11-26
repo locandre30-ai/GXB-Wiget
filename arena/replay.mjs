@@ -1,4 +1,4 @@
-import { advancePaper, applyPaperCommand, createPaperAccount, paperSnapshot } from './paper.mjs';
+import { advancePaper, applyPaperCommand, createPaperAccount, paperSnapshot, settlePaperWeek } from './paper.mjs';
 const HEADER = 'timestamp,open,high,low,close,volume';
 const RESOLUTIONS = [1, 5, 15, 60, 1440];
 const MINUTE = 60_000;
@@ -81,9 +81,10 @@ function visibleState(revealed, metadata, minutes) {
   return { metadata, minutes, revealed: revealed.length, time: latest.time + metadata.minutes * MINUTE, latest, bars, range, sma5 };
 }
 
-export function createReplay(dataset, id, checkpoint) {
+export function createReplay(dataset, id, checkpoint, funding = null) {
   const { metadata, bars } = dataset;
-  const paper = createPaperAccount();
+  const paper = createPaperAccount(funding);
+  let settled = false;
   const commands = [];
   let cursor = 1;
   let minutes = metadata.minutes;
@@ -93,11 +94,19 @@ export function createReplay(dataset, id, checkpoint) {
     return true;
   };
   const order = action => {
+    check(!settled, 'The paper week is complete.');
     const { type, side, quantity, stop, target, fee, slippage } = action ?? {};
     const command = type === 'entry' ? { type, side, quantity, stop, target, fee, slippage } : { type };
     check(commands.length < 10000, 'This replay has reached its paper action limit.');
     applyPaperCommand(paper, command, bars[cursor - 1]);
     commands.push({ cursor, command });
+  };
+  const settle = () => {
+    check(funding !== null && cursor === bars.length, 'Finish revealing the week before settling it.');
+    if (!settled) {
+      settlePaperWeek(paper, bars[cursor - 1]);
+      settled = true;
+    }
   };
   if (checkpoint !== undefined) {
     check(checkpoint?.format === 'gxb-market-studio-checkpoint' && checkpoint.version === 1 &&
@@ -114,19 +123,21 @@ export function createReplay(dataset, id, checkpoint) {
       order(event.command);
     }
     while (cursor < checkpoint.cursor) step();
+    if (checkpoint.settled === true) settle();
   }
   return {
     snapshot: () => ({
       ...visibleState(bars.slice(0, cursor), metadata, minutes),
-      paper: paperSnapshot(paper, bars[cursor - 1])
+      paper: paperSnapshot(paper, bars[cursor - 1]), settled
     }),
     step,
+    settle,
     order,
     setInterval(value) {
       check(displayIntervals(metadata.minutes).includes(value), 'Choose a compatible chart interval.');
       minutes = value;
     },
     checkpoint: () => structuredClone({ format: 'gxb-market-studio-checkpoint', version: 1, datasetId: id,
-      cursor, minutes, commands })
+      cursor, minutes, commands, ...(settled ? { settled: true } : {}) })
   };
 }

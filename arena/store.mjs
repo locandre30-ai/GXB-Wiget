@@ -1,3 +1,4 @@
+import { cleanPortfolio } from './portfolio.mjs';
 import { cleanStudy } from './study-store.mjs';
 import { cleanLearning } from './learning.mjs';
 import { cleanOrder, cleanWatch } from './workspace.mjs';
@@ -88,6 +89,7 @@ function cleanProfile(id, raw) {
     navOrder: cleanOrder(raw.navOrder),
     watch: cleanWatch(raw.watch),
     study: cleanStudy(raw.study),
+    portfolio: cleanPortfolio(raw.portfolio),
     ...(raw.origin === 'legacy-device' ? { origin: raw.origin } : {}),
     state
   };

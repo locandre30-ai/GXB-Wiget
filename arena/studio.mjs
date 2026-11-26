@@ -1,3 +1,4 @@
+import { accountTotals, portfolioReplay } from './portfolio.mjs';
 import { practiceDay, practiceWeek, WEEK_GOAL } from './studio-week.mjs';
 import { createReplay, datasetId, displayIntervals, parseReplayFile } from './replay.mjs';
 
@@ -106,7 +107,7 @@ function downloadCheckpoint(replay) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function paperPanel(replay, repaint, observe) {
+function paperPanel(commit) {
   const card = element('section', undefined, 'stack studio-paper');
   card.append(element('h2', 'Paper execution'), element('small', 'One simulated position per replay. Entries and manual exits use the next revealed open. Stop wins an ambiguous stop/target bar. New simulated decisions inform your Academy learning plan.'));
   const form = element('form', undefined, 'stack');
@@ -140,14 +141,9 @@ function paperPanel(replay, repaint, observe) {
   status.setAttribute('role', 'status');
   const summary = element('p');
   const history = element('div', undefined, 'activity');
-  const run = command => {
-    try {
-      replay.order(command);
-      observe(command);
-      repaint();
-    } catch (error) {
-      status.textContent = error.message;
-    }
+  const run = async command => {
+    try { await commit(command); }
+    catch (error) { status.textContent = error.message; }
   };
   form.onsubmit = event => {
     event.preventDefault();
@@ -180,13 +176,15 @@ function paperPanel(replay, repaint, observe) {
   };
 }
 
-function replayPanel(host, replay, observe) {
+function replayPanel(host, replay, observe, linked) {
   const snapshot = replay.snapshot();
   const panel = element('section', undefined, 'panel stack studio-chart');
   const heading = element('h2', snapshot.metadata.market === 'gold' ? labelMarket.gold : snapshot.metadata.symbol + ' · ' + labelMarket.stocks);
   const week = snapshot.metadata.practiceWeek === true;
   let picking;
   let timer;
+  let saving = false;
+  let blocked = false;
   const info = element('p', undefined, 'studio-clock');
   const display = options(displayIntervals(snapshot.metadata.minutes).map(minutes => [minutes, minutes + ' min']));
   display.value = snapshot.minutes;
@@ -203,7 +201,8 @@ function replayPanel(host, replay, observe) {
     play.textContent = 'Play replay';
   }
   const controls = element('div', undefined, 'actions');
-  controls.append(field('Chart interval', display), next, play, checkpoint);
+  controls.append(field('Chart interval', display), next, play);
+  if (!linked) controls.append(checkpoint);
   const plot = element('div', undefined, 'studio-plot');
   const orderTools = element('div', undefined, 'actions studio-order-tools');
   const goal = element('p', undefined, 'studio-week-goal');
@@ -227,7 +226,29 @@ function replayPanel(host, replay, observe) {
   const stats = element('p');
   const feedback = element('p');
   feedback.setAttribute('role', 'status');
-  const paper = paperPanel(replay, () => paint(), command => observe(command, snapshot.metadata.market));
+  const paper = paperPanel(async command => {
+    if (saving || blocked) return;
+    if (linked && replay.snapshot().revealed === 30 && command.type !== 'cancel') throw new Error('Settle the week at the final revealed close.');
+    pause();
+    replay.order(command);
+    if (linked) await persist(command);
+    else observe(command, snapshot.metadata.market);
+    paint();
+  });
+  async function persist(command) {
+    saving = true;
+    next.disabled = true;
+    try {
+      const state = replay.snapshot();
+      const saved = await linked.save(snapshot.metadata.market, { ...linked.run, complete: state.settled }, replay.checkpoint(), state.paper, command);
+      if (!saved) throw new Error('The checkpoint could not be saved.');
+      linked.refresh();
+    } catch (error) {
+      blocked = true;
+      pause();
+      feedback.textContent = error.message + ' Reopen Market Studio to resume the last saved state.';
+    } finally { saving = false; }
+  }
   const paint = () => {
     const state = replay.snapshot();
     const { open, high, low, close, volume } = state.latest;
@@ -241,7 +262,14 @@ function replayPanel(host, replay, observe) {
         ' closed paper ' + (trades === 1 ? 'trade' : 'trades') + ' · Practice goal ' + WEEK_GOAL.join('–') +
         (trades >= WEEK_GOAL[0] && trades <= WEEK_GOAL[1] ? ' · Goal reached' : '');
     }
-    const bracketLocked = next.disabled || Boolean(state.paper.pending || state.paper.position);
+    const finished = state.settled || blocked;
+    if (linked) {
+      next.disabled = finished;
+      play.disabled = finished || state.revealed === 30;
+      next.textContent = state.revealed === 30 && !finished ? 'Settle paper week' : 'Reveal next candle';
+    }
+    const bracketLocked = next.disabled || Boolean(linked && state.revealed === 30) ||
+      Boolean(state.paper.pending || state.paper.position);
     if (bracketLocked) picking = undefined;
     for (const [key, button] of Object.entries(levelButtons)) {
       button.disabled = bracketLocked;
@@ -254,10 +282,19 @@ function replayPanel(host, replay, observe) {
       pickStatus.textContent = (key === 'stop' ? 'Stop' : 'Target') + ' set to ' + formatPrice(price) + '.';
       paint();
     } : null));
-    paper.paint(state.paper, next.disabled);
+    paper.paint(state.paper, next.disabled || Boolean(linked && state.revealed === 30));
   };
-  function advance() {
+  async function advance() {
     if (!panel.isConnected) { pause(); return; }
+    if (saving || blocked) return;
+    if (linked && replay.snapshot().revealed === 30) {
+      pause();
+      replay.settle();
+      await persist();
+      paint();
+      if (!blocked) feedback.textContent = 'Paper week settled. Portfolio Lab has the updated balance.';
+      return;
+    }
     if (!replay.step()) {
       pause();
       next.disabled = true;
@@ -266,24 +303,34 @@ function replayPanel(host, replay, observe) {
       paint();
       return;
     }
+    if (linked) {
+      if (replay.snapshot().revealed === 30) pause();
+      await persist();
+    }
     paint();
-    feedback.textContent = info.textContent + ' · Close ' + formatPrice(replay.snapshot().latest.close);
+    if (!blocked) feedback.textContent = info.textContent + ' · Close ' + formatPrice(replay.snapshot().latest.close);
   }
   next.onclick = () => { pause(); advance(); };
   play.onclick = () => {
     if (timer) pause();
     else { timer = setInterval(advance, 550); play.textContent = 'Pause replay'; }
   };
-  display.onchange = () => { replay.setInterval(Number(display.value)); paint(); };
+  display.onchange = async () => {
+    if (saving || blocked) { display.value = replay.snapshot().minutes; return; }
+    replay.setInterval(Number(display.value));
+    if (linked) await persist();
+    paint();
+  };
   panel.append(heading, element('small', 'Source · ' + snapshot.metadata.source + ' · UTC · ' + snapshot.metadata.minutes + ' min input'),
     controls, info);
+  if (linked) panel.append(element('small', 'Portfolio Lab linked · Cash and trades save to this local paper account. Open positions settle at the final revealed close.'));
   if (week) panel.append(goal);
   panel.append(orderTools, plot, stats, feedback, paper.card);
   paint();
   host.replaceChildren(panel);
 }
 
-export function renderStudio(workspace, preferredMarket, owner, observe) {
+export function renderStudio(workspace, preferredMarket, owner, observe, portfolio) {
   const weekCard = element('section', undefined, 'panel stack studio-week');
   weekCard.append(element('h2', 'Practice a trading week'),
     element('p', 'Five simulated days. Practice two or three completed trades when your setup appears. You can finish the week with fewer if the setup never comes.'),
@@ -291,6 +338,10 @@ export function renderStudio(workspace, preferredMarket, owner, observe) {
   const weekMarket = options(Object.entries(labelMarket));
   weekMarket.value = preferredMarket;
   const start = element('button', 'Start practice week', 'primary');
+  const linkedButton = element('button');
+  linkedButton.type = 'button';
+  const lab = element('a', 'Set up Portfolio Lab', 'button');
+  lab.href = '#portfolio';
   start.type = 'button';
   const restoration = element('details');
   restoration.append(element('summary', 'Restore a practice-week checkpoint'));
@@ -303,8 +354,40 @@ export function renderStudio(workspace, preferredMarket, owner, observe) {
   weekStatus.setAttribute('role', 'status');
   restoration.append(field('Practice-week checkpoint file', checkpointFile), restore);
   const weekActions = element('div', undefined, 'actions');
-  weekActions.append(field('Practice market', weekMarket), start);
+  weekActions.append(field('Practice market', weekMarket), start, linkedButton, lab);
   weekCard.append(weekActions, restoration, weekStatus);
+  function paintAccountAction() {
+    const account = portfolio.get(weekMarket.value);
+    linkedButton.hidden = !account;
+    lab.hidden = Boolean(account);
+    linkedButton.textContent = account?.run && !account.run.complete ? 'Resume linked practice week' : 'Start linked practice week';
+  }
+  weekMarket.onchange = paintAccountAction;
+  paintAccountAction();
+  linkedButton.onclick = async () => {
+    const market = weekMarket.value;
+    const account = portfolio.get(market);
+    if (!account) return;
+    linkedButton.disabled = true;
+    try {
+      const active = account.run && !account.run.complete;
+      const run = active ? account.run : { id: crypto.randomUUID(), funding: Math.max(0, accountTotals(account).cash), complete: false };
+      if (!active && run.funding <= 0) throw new Error('Add paper funds in Portfolio Lab before starting a new week.');
+      const replay = await portfolioReplay(market, run);
+      if (!weekCard.isConnected) return;
+      if (!active && !await portfolio.save(market, run, replay.checkpoint(), replay.snapshot().paper)) {
+        throw new Error('The linked paper week could not be saved.');
+      }
+      if (!weekCard.isConnected) return;
+      const linked = { run, save: portfolio.save, refresh: paintAccountAction };
+      current = { owner, replay, linked };
+      replayPanel(output, replay, observe, linked);
+      weekStatus.textContent = active ? 'Linked week resumed.' : 'Linked week ready.';
+      paintAccountAction();
+      output.querySelector('h2')?.scrollIntoView({ block: 'nearest' });
+    } catch (error) { weekStatus.textContent = error.message; }
+    finally { linkedButton.disabled = false; }
+  };
   async function loadWeek(file) {
     start.disabled = restore.disabled = true;
     try {
@@ -368,7 +451,7 @@ export function renderStudio(workspace, preferredMarket, owner, observe) {
   status.setAttribute('role', 'status');
   form.append(details, field('Candle CSV', csv), field('Checkpoint (optional)', backup), load, status);
   const output = element('div', undefined, 'studio-output');
-  if (current?.owner === owner) replayPanel(output, current.replay, observe);
+  if (current?.owner === owner && !current.linked) replayPanel(output, current.replay, observe);
   intro.append(form);
   workspace.append(weekCard, intro, output);
   form.onsubmit = async event => {
