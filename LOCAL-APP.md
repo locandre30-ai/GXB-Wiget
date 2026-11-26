@@ -18,6 +18,8 @@ The **Market assistant** builds a local brief from the selected market, tracked 
 
 ## Your Academy learning plan
 
+See [Academy 1.1](ACADEMY-1.1.md) for the Learning Lounge, case studies, knowledge topics, reflections, and profile-owned study library.
+
 Choose Gold or Bitcoin to meet the GXB Academy Guide. Share a short introduction if you want. The guide responds and points you to the first market review. The complete seven-lesson path is available from the journey screen. Each track has its own checkpoints. A missed answer prompts an interactive follow-up and a chance to retry. The next recommendation can change based on first answers, simulated Free Practice results and new paper decisions made in Market Studio.
 
 Academy keeps these signals with the local profile and includes them in backups. Studio supplies action counts for paper entries, exits and cancellations. It does not re-count actions replayed from a checkpoint. Guide replies and suggested reviews are rule-based. The **GxB Academy Guide** asks checkpoint questions and gives feedback beside the chart. Open **Continue with your own AI assistant** in the guide to preview and copy a tutoring prompt. Brokerage connections, AI-generated tutoring and live market data for Academy lessons remain future integrations.

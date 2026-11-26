@@ -1,3 +1,4 @@
+import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs';
 import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
 import { setupNavigation } from './navigation.mjs';
@@ -276,6 +277,7 @@ window.gxbTraining = {
     return {
       view,
       market: element.dataset.market,
+      lesson: element.dataset.lesson,
       book: { ...snapshot, profiles: { [id]: snapshot.profiles[id] } },
       save(updated) {
         if (guestAtConnect) {
@@ -295,10 +297,11 @@ window.gxbTraining = {
   }
 };
 
-function renderTraining(view, market) {
+function renderTraining(view, market, lesson) {
   frame = node('iframe', undefined, 'training');
   frame.dataset.view = view;
   if (market) frame.dataset.market = market;
+  if (/^[0-6]$/.test(lesson ?? "")) frame.dataset.lesson = lesson;
   frame.title = view === 'academy' ? 'Academy lesson workspace' : 'Free Practice training';
   frame.src = './practice.html?view=' + view;
   workspace.append(frame);
@@ -535,19 +538,55 @@ function renderLearningActivity() {
 
 function renderAcademy() {
   const state = activeProfile().state;
-  const market = location.hash.split('/')[1];
-  const choices = node('section', undefined, 'panel');
-  choices.append(node('p', 'Choose Gold or Bitcoin to meet your GXB Guide and explore the full seven-lesson path.'));
-  const list = node('div', undefined, 'two');
-  for (const id of ['gold', 'bitcoin']) {
-    const info = progressFor(state, id);
-    const option = link(marketNames[id] + ' · ' + info.count + ' / 7 complete', '#academy/' + id, 'button market');
-    if (id === market) option.setAttribute('aria-current', 'true');
-    list.append(option);
+  const [, page, target] = location.hash.split('/');
+  if (Object.hasOwn(STUDY_SECTIONS, page)) {
+    workspace.append(renderStudySection(page, target, () => activeProfile().study,
+      update => updateProfile(profile => update(profile.study))));
+    return;
   }
-  choices.append(list);
-  workspace.append(choices);
-  if (['gold', 'bitcoin'].includes(market)) renderTraining('academy', market);
+  const tracks = [
+    ['gold', 'Gold', 'XAU/USD · Precious Metals'],
+    ['bitcoin', 'Cryptocurrency', 'Bitcoin · Digital Assets'],
+    ['stocks', 'Stocks & ETFs', 'Equities and exchange-traded funds']
+  ];
+  if (page === 'gold' || page === 'bitcoin') {
+    const nav = node('div', undefined, 'actions academy-track-nav');
+    nav.append(link('← Academy', '#academy'));
+    for (const [id, title] of tracks.slice(0, 2)) {
+      const tab = link(title, '#academy/' + id);
+      if (id === page) tab.setAttribute('aria-current', 'page');
+      nav.append(tab);
+    }
+    workspace.append(nav);
+    renderTraining('academy', page, target);
+    return;
+  }
+
+  const intro = node('section', undefined, 'panel academy-welcome');
+  intro.append(node('h2', 'Knowledge before capital.'),
+    node('p', 'Explore the markets. Develop your understanding. Move with intention.'));
+  const journeys = node('section', undefined, 'academy-journeys');
+  journeys.append(node('h2', 'Market Journeys'));
+  const grid = node('div', undefined, 'academy-track-grid');
+  for (const [id, title, detail] of tracks) {
+    const available = id !== 'stocks';
+    const card = available ? link('', '#academy/' + id, 'panel academy-track-card')
+      : node('article', undefined, 'panel academy-track-card unavailable');
+    const photo = node('span', undefined, 'academy-track-art market-art-' + id);
+    photo.setAttribute('aria-hidden', 'true');
+    card.append(photo, node('h3', title), node('p', detail));
+    if (available) {
+      const progress = progressFor(state, id);
+      const started = progress.count > 0 || Object.keys(state.learning?.evidence[id] ?? {}).length > 0;
+      card.append(node('small', progress.count + ' of 7 lessons complete'),
+        node('span', progress.count === 7 ? 'Review Journey' : started ? 'Continue Journey' : 'Begin Journey', 'academy-track-action'));
+    } else {
+      card.append(node('small', 'Structured curriculum in development'));
+    }
+    grid.append(card);
+  }
+  journeys.append(grid);
+  workspace.append(intro, journeys, academyDirectory());
 }
 
 function renderPractice() {

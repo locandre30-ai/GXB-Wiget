@@ -56,6 +56,12 @@
     body.embedded .arena { box-shadow: none; --maxW: 100%; background: #162337 }
     .guideHandoff textarea:not([hidden]) { display: block; width: 100%; margin: 8px 0; padding: 8px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
     .academyLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(255px, 340px); gap: 18px; align-items: start }
+    body.embedded .home { max-width: min(100%, 1480px); }
+    .academyLayout .journeyHero { min-width: 0 }
+    body.embedded .journeyHero .pathRow button { flex: 1; text-align: left; white-space: normal; padding-inline: 14px; }
+    body.embedded .journeyHero .pathRow button:hover { border-color: var(--gold); }
+    .academyVisuals .chartScroll svg { min-height: 300px }
+    @media(min-width: 1050px) { .academyVisuals .chartScroll svg { min-height: 360px } }
     .academySide { display: grid; gap: 14px; min-width: 0 }
     .academyVisuals { min-width: 0 }
     .academyGuide { min-width: 0; padding: 12px 0 0 }
@@ -2709,7 +2715,10 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           ST.journey.market = market;
           saveState(ST);
         }
-        academyHome();
+        const lesson=connection.lesson;
+        if(lesson==='0')mission(market);
+        else if(/^[1-6]$/.test(lesson??''))skillMission(market,Number(lesson));
+        else academyHome();
       } else if(activeProfile().onboarded) showHome(); else profiles();
     }
     document.body.classList.remove("loading");

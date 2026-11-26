@@ -159,7 +159,7 @@ async function run() {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       if (width === 390) await screenshot('05-mobile-command-center');
       await page.getByRole('link', { name: 'Academy', exact: true }).click();
-      await page.getByRole('link', { name: /Bitcoin/ }).click();
+      await page.getByRole('link', { name: /^Cryptocurrency/ }).click();
       await lesson.getByRole('heading', { name: /Bitcoin journey/ }).waitFor();
       assert.equal(await lesson.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
       await page.getByRole('link', { name: 'Free Practice' }).click();

@@ -26,7 +26,7 @@ async function run() {
     await page.getByText('Learning activity', { exact: true }).click();
     await page.getByRole('link', { name: 'Test source' }).waitFor();
     await page.getByRole('link', { name: 'Academy', exact: true }).click();
-    await page.getByRole('link', { name: /^Bitcoin/ }).click();
+    await page.getByRole('link', { name: /^Cryptocurrency/ }).click();
     const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
     const guide = frame.getByRole('region', { name: 'GxB Academy Guide' });
     await guide.getByText(/Hey, welcome to the Academy/).waitFor();

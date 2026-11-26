@@ -1,3 +1,4 @@
+import { cleanStudy } from './study-store.mjs';
 import { cleanLearning } from './learning.mjs';
 import { cleanOrder, cleanWatch } from './workspace.mjs';
 export const KEY = 'gxb_arena_v2_r1';
@@ -86,6 +87,7 @@ function cleanProfile(id, raw) {
     market: raw.market === 'stocks' ? 'stocks' : 'gold',
     navOrder: cleanOrder(raw.navOrder),
     watch: cleanWatch(raw.watch),
+    study: cleanStudy(raw.study),
     ...(raw.origin === 'legacy-device' ? { origin: raw.origin } : {}),
     state
   };
