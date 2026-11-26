@@ -67,11 +67,11 @@ function aggregate(bars, interval) {
   return groups;
 }
 
-function visibleState(revealed, metadata, minutes) {
+function visibleState(revealed, metadata, minutes, maxBars) {
   const latest = revealed.at(-1);
   const interval = minutes * MINUTE;
   const grouped = aggregate(revealed, interval);
-  const bars = grouped.slice(-60).map(bar => ({
+  const bars = grouped.slice(-maxBars).map(bar => ({
     ...bar,
     partial: bar.time + interval > latest.time + metadata.minutes * MINUTE
   }));
@@ -126,8 +126,8 @@ export function createReplay(dataset, id, checkpoint, funding = null) {
     if (checkpoint.settled === true) settle();
   }
   return {
-    snapshot: () => ({
-      ...visibleState(bars.slice(0, cursor), metadata, minutes),
+    snapshot: (maxBars = 60) => ({
+      ...visibleState(bars.slice(0, cursor), metadata, minutes, maxBars),
       paper: paperSnapshot(paper, bars[cursor - 1]), settled
     }),
     step,

@@ -80,9 +80,32 @@ async function run() {
       const context = canvas.getContext('2d');
       const clear = context.clearRect.bind(context);
       const label = context.fillText.bind(context);
-      context.clearRect = (...args) => { canvas.axisLabels = []; clear(...args); };
+      const fill = context.fillRect.bind(context);
+      context.clearRect = (...args) => { canvas.axisLabels = []; canvas.bodyWidths = []; clear(...args); };
       context.fillText = (value, ...args) => { canvas.axisLabels.push(value); label(value, ...args); };
+      context.fillRect = (...args) => { canvas.bodyWidths.push(args[2]); fill(...args); };
     });
+    await drill.getByRole('button', { name: '1h', exact: true }).click();
+    const hourlyWidths = await practiceChart.evaluate(canvas =>
+      canvas.bodyWidths.map(width => width * canvas.getBoundingClientRect().width / canvas.width));
+    assert.ok(hourlyWidths.length > 1);
+    assert.ok(hourlyWidths.every(width => width <= 18.2), 'Hourly candles stay compact at fit scale');
+    const hourlyAxis = await practiceChart.evaluate(canvas => {
+      const ticks = () => canvas.axisLabels.filter(value => /^(?:[+-]\d+d )?\d\d:\d\d$/.test(value)).slice(0,-1);
+      const rect = canvas.getBoundingClientRect();
+      const zoom = deltaY => canvas.dispatchEvent(new WheelEvent('wheel', {
+        clientX: rect.left+(rect.width-54)/2, clientY: rect.top+rect.height/2, deltaY, cancelable: true,
+      }));
+      const fit = canvas.axisLabels.filter(value => /^(?:[+-]\d+d )?\d\d:\d\d$/.test(value));
+      zoom(240);
+      const wider = ticks();
+      for(let i=0;i<4;i++) zoom(-240);
+      return {fit, wider, closer:ticks()};
+    });
+    assert.ok(hourlyAxis.fit.some(tick => /^-\d+d/.test(tick)) && hourlyAxis.fit.some(tick => /^\+\d+d/.test(tick)));
+    assert.notDeepEqual(hourlyAxis.wider, hourlyAxis.fit);
+    assert.notDeepEqual(hourlyAxis.closer, hourlyAxis.fit);
+    await drill.getByRole('button', { name: '5m', exact: true }).click();
     await drill.getByRole('button', { name: 'Reset chart scale' }).click();
     const axes = () => practiceChart.evaluate(canvas => {
       const [hi,,,,lo] = canvas.axisLabels.slice(0,5).map(Number);

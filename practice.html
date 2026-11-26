@@ -1512,10 +1512,12 @@
       return output;
     }
 
-    function iccTime(index){
+    function iccTime(index, showDay=false){
       const minutes=9*60+30+index*5;
-      const hours=String(Math.floor(minutes/60)%24).padStart(2,"0");
-      return hours+":"+String(minutes%60).padStart(2,"0");
+      const day=Math.floor(minutes/1440);
+      const clock=((minutes%1440)+1440)%1440;
+      const time=String(Math.floor(clock/60)).padStart(2,"0")+":"+String(clock%60).padStart(2,"0");
+      return showDay ? (day===0?"":(day>0?"+":"")+day+"d ") + time : time;
     }
 
     function drawChart(bars, revealedFuture, sc, minutes=5, selection=-1){
@@ -1525,9 +1527,11 @@
 
       const all = visibleCandles(bars, revealedFuture, minutes);
       const total = all.length;
-      const span = Math.min(total, chartView.span ?? total);
-      const start = Math.min(total-span, chartView.start ?? total-span);
-      const windowBars = all.slice(Math.floor(start), Math.ceil(start+span));
+      const hourly = minutes===60;
+      const span = chartView.span ?? (hourly?48:total);
+      const start = chartView.start ?? (total-span)/2;
+      const windowBars = all.slice(Math.max(0,Math.floor(start)),Math.min(total,Math.ceil(start+span)));
+      if(!windowBars.length) windowBars.push(all[start<0?0:total-1]);
       let lo = Math.min(...windowBars.map(b=>b.l)), hi = Math.max(...windowBars.map(b=>b.h));
       if(sc && sc.lines){
         for(const v of Object.values(sc.lines)){ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v);} }
@@ -1536,14 +1540,17 @@
       if(showAssist){
         for(const a of sc.assist){ lo=Math.min(lo,a.p); hi=Math.max(hi,a.p); }
       }
-      const padY = (hi-lo)*0.08 || 1; lo -= padY; hi += padY;
+      // Sparse higher-timeframe views need room around the candle wicks.
+      const padding = hourly ? 0.45 : windowBars.length < 8 ? 0.24 : 0.08;
+      const padY = (hi-lo)*padding || 1; lo -= padY; hi += padY;
       if(chartView.price) [lo,hi] = chartView.price;
 
       const mL = 8*DPR, mR = 62*DPR, mT = 25*DPR, mB = 26*DPR;
       const right = W-mR, bottom = H-mB;
       chartGeometry = {all, start, span, lo, hi, left:mL, right, top:mT, bottom};
       const cw = (right - mL) / span;
-      const bw = Math.max(2*DPR, cw*0.62);
+      // Keep candle bodies compact even when a few bars fill the timeframe.
+      const bw = Math.max(2*DPR, Math.min(18*DPR, cw*0.62));
       const y = p => mT + (hi-p)/(hi-lo) * (H-mT-mB);
       const x = i => mL + (i-start+.5)*cw;
 
@@ -1560,13 +1567,13 @@
         cctx.fillText(price.toFixed(2),W-mR+7*DPR,gy);
       }
       cctx.beginPath();cctx.moveTo(W-mR,mT);cctx.lineTo(W-mR,H-mB);cctx.lineTo(mL,H-mB);cctx.stroke();
-      const first=Math.ceil(start-.5), last=Math.min(total-1,Math.floor(start+span-.5));
-      const tickCount=Math.min(last-first+1,Math.max(2,Math.floor((right-mL)/(62*DPR))));
+      const first=Math.ceil(start-.5), last=Math.floor(start+span-.5);
+      const tickCount=Math.min(last-first+1,Math.max(2,Math.floor((right-mL)/((hourly?90:62)*DPR))));
       cctx.textAlign = "center";
       for(let i=0;i<tickCount;i++){
         const index=tickCount===1?first:first+Math.round(i*(last-first)/(tickCount-1));
         const px=Math.min(W-mR-21*DPR,Math.max(mL+21*DPR,x(index)));
-        cctx.fillText(iccTime(all[index].start),px,H-10*DPR);
+        cctx.fillText(iccTime(index*(minutes/5),hourly),px,H-10*DPR);
       }
 
       cctx.save();
@@ -1643,16 +1650,18 @@
       cctx.moveTo(dvx, mT); cctx.lineTo(dvx, H-mB); cctx.stroke();
       cctx.setLineDash([]);
       cctx.restore();
-      if(chartPointer && all[selection]){
+      if(chartPointer){
         const py=Math.max(mT,Math.min(bottom,chartPointer.y));
-        const px=Math.max(mL+24*DPR,Math.min(right-24*DPR,chartPointer.x));
+        const halfLabel=(hourly?38:24)*DPR;
+        const px=Math.max(mL+halfLabel,Math.min(right-halfLabel,chartPointer.x));
         cctx.fillStyle="#dcbb73";
         cctx.fillRect(right,py-8*DPR,mR,16*DPR);
-        cctx.fillRect(px-24*DPR,bottom,48*DPR,18*DPR);
+        cctx.fillRect(px-halfLabel,bottom,2*halfLabel,18*DPR);
         cctx.fillStyle="#0a111e";
         cctx.textAlign="center";
         cctx.fillText((hi-(hi-lo)*(py-mT)/(bottom-mT)).toFixed(2),right+mR/2,py);
-        cctx.fillText(iccTime(all[selection].start),px,bottom+9*DPR);
+        const timeIndex=Math.floor(start+(Math.max(mL,Math.min(right,chartPointer.x))-mL)/cw);
+        cctx.fillText(iccTime(timeIndex*(minutes/5),hourly),px,bottom+9*DPR);
       }
     }
 
@@ -1826,6 +1835,10 @@
       const readout=$("iccChartReadout");
       if(!CUR){readout.textContent="";return;}
       const visible=visibleCandles(CUR.bars,revealed,chartMinutes);
+      if(chartPointer && inspectedBar<0){
+        readout.textContent="No candle at this time · Synthetic drill";
+        return;
+      }
       const bar=visible[inspectedBar]??visible.at(-1);
       readout.textContent=`${chartMinutes}m · Simulated ${iccTime(bar.start)} · O ${bar.o.toFixed(2)} · H ${bar.h.toFixed(2)} · L ${bar.l.toFixed(2)} · C ${bar.c.toFixed(2)}${bar.partial?" · forming":""}`;
     }
@@ -1853,9 +1866,14 @@
       return point.x>=geometry.right?"price":point.y>=geometry.bottom?"time":"plot";
     }
     function scaleChartTime(g, anchor, factor, pan=0){
-      const span=clampChart(g.span*factor,Math.min(2,g.all.length),g.all.length);
+      const hourly=chartMinutes===60;
+      const span=clampChart(g.span*factor,hourly?1:Math.min(2,g.all.length),hourly?96:g.all.length);
+      const focus=g.start+g.span*anchor;
+      const nextStart=hourly && factor<1 && (focus<0 || focus>=g.all.length)
+        ? clampChart(focus,.5,g.all.length-.5)-span/2
+        : g.start+(g.span-span)*anchor+pan;
       chartView.span=span;
-      chartView.start=clampChart(g.start+(g.span-span)*anchor+pan,0,g.all.length-span);
+      chartView.start=clampChart(nextStart,hourly?.5-span:0,hourly?g.all.length-.5:g.all.length-span);
     }
     function scaleChartPrice(g, anchor, factor){
       const range=g.hi-g.lo;
@@ -1866,7 +1884,8 @@
     function inspectChart(point){
       const g=chartGeometry;
       chartPointer=point;
-      inspectedBar=clampChart(Math.floor(g.start+(point.x-g.left)/(g.right-g.left)*g.span),0,g.all.length-1);
+      const index=Math.floor(g.start+clampChart((point.x-g.left)/(g.right-g.left),0,1)*g.span);
+      inspectedBar=index>=0 && index<g.all.length?index:-1;
       redraw();
     }
     chart.addEventListener("wheel",event=>{
@@ -1909,7 +1928,7 @@
       inspectedBar=Math.max(0,Math.min(last,from+(event.key==="ArrowLeft"?-1:1)));
       const g=chartGeometry;
       if(g && (inspectedBar+.5<g.start || inspectedBar+.5>g.start+g.span)){
-        chartView.start=clampChart(inspectedBar+.5-g.span/2,0,g.all.length-g.span);
+        chartView.start=chartMinutes===60 ? inspectedBar+.5-g.span/2 : clampChart(inspectedBar+.5-g.span/2,0,g.all.length-g.span);
       }
       redraw();
     });

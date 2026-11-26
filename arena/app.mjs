@@ -6,7 +6,7 @@ import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
 import { setupNavigation } from './navigation.mjs?v=save-1';
 import { marketBrief, watchlist } from './market-watch.mjs';
-import { clearStudio, renderStudio } from './studio.mjs?v=save-1';
+import { clearStudio, renderStudio } from './studio.mjs?v=scale-1';
 import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs?v=save-1';
 import { LocalIdentity } from './identity.mjs?v=save-1';
 
@@ -311,7 +311,7 @@ function renderTraining(view, market, lesson) {
   if (market) frame.dataset.market = market;
   if (/^[0-6]$/.test(lesson ?? "")) frame.dataset.lesson = lesson;
   frame.title = view === 'academy' ? 'Academy lesson workspace' : 'Free Practice training';
-  frame.src = './practice.html?v=chart-1&view=' + view;
+  frame.src = './practice.html?v=chart-3&view=' + view;
   workspace.append(frame);
 }
 

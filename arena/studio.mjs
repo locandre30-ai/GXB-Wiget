@@ -1,8 +1,9 @@
 import { accountTotals, portfolioReplay } from './portfolio.mjs';
 import { CURRENT_WEEK_VERSION, practiceDay, practiceWeek, revealPracticeOpening, WEEK_GOAL } from './studio-week.mjs';
-import { createReplay, datasetId, displayIntervals, parseReplayFile } from './replay.mjs';
+import { createReplay, datasetId, displayIntervals, parseReplayFile } from './replay.mjs?v=scale-1';
 
 const MAX_BYTES = 20 * 1024 * 1024;
+const CHART_HISTORY = 240;
 const SVG = 'http://www.w3.org/2000/svg';
 const labelMarket = { stocks: 'Stocks and ETFs', gold: 'XAU/USD Gold' };
 let current;
@@ -49,6 +50,10 @@ function chart({ bars, range, paper }, pick, inspect, viewWidth) {
   const y = value => 20 + (range.high - value + spread * .05) / (spread * 1.1) * 260;
   const bucket = (right - left) / bars.length;
   const width = Math.min(22, bucket * .65);
+  const clip = svg('clipPath', { id: 'studio-candle-clip' });
+  clip.append(svg('rect', { x: left, y: 20, width: right-left, height: 260 }));
+  plot.append(clip);
+  const candles = svg('g', { 'clip-path': 'url(#studio-candle-clip)' });
   for (let i = 0; i <= 4; i++) {
     const value = range.high - spread * i / 4;
     const gridY = y(value);
@@ -64,8 +69,9 @@ function chart({ bars, range, paper }, pick, inspect, viewWidth) {
     candle.append(svg('line', { x1: x, x2: x, y1: y(bar.high), y2: y(bar.low) }),
       svg('rect', { x: x - width / 2, y: Math.min(y(bar.open), y(bar.close)), width,
         height: Math.max(1, Math.abs(y(bar.open) - y(bar.close))) }));
-    plot.append(candle);
+    candles.append(candle);
   }
+  plot.append(candles);
   const ticks = Math.min(viewWidth < 500 ? 3 : 5, bars.length);
   for (let i = 0; i < ticks; i++) {
     const index = ticks === 1 ? 0 : Math.round(i * (bars.length - 1) / (ticks - 1));
@@ -281,6 +287,42 @@ function replayPanel(host, replay, observe, linked) {
   if (!linked) controls.append(checkpoint);
   const plot = element('div', undefined, 'studio-plot');
   let chartWidth = 820;
+  let visibleCount = Infinity;
+  let priceScale = 1;
+  const scaleBar = element('div', undefined, 'actions');
+  const scaleButton = (label, action) => {
+    const button = element('button', label);
+    button.type = 'button';
+    button.onclick = () => { action(); paint(); };
+    scaleBar.append(button);
+  };
+  function scaleTime(factor) {
+    const count = replay.snapshot(CHART_HISTORY).bars.length;
+    const span = Math.min(visibleCount, count);
+    const steps = Math.max(1, Math.round(span * Math.abs(1-factor)));
+    const next = span + (factor < 1 ? -steps : steps);
+    visibleCount = next >= count ? Infinity : Math.max(Math.min(count, 3), next);
+  }
+  function scalePrice(factor) {
+    priceScale = Math.max(.1, Math.min(10, priceScale * factor));
+  }
+  scaleButton('Zoom in time', () => scaleTime(.7));
+  scaleButton('Zoom out time', () => scaleTime(1.4));
+  scaleButton('Expand price range', () => scalePrice(1.4));
+  scaleButton('Narrow price range', () => scalePrice(.7));
+  scaleButton('Fit full chart', () => { visibleCount = Infinity; priceScale = 1; });
+  plot.addEventListener('wheel', event => {
+    if (!event.deltaY || event.ctrlKey || event.metaKey) return;
+    const svg = plot.firstElementChild;
+    const matrix = svg?.getScreenCTM();
+    if (!matrix) return;
+    const { x } = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    event.preventDefault();
+    const factor = event.deltaY < 0 ? .8 : 1.25;
+    if (x >= chartWidth - 69) scalePrice(factor);
+    else scaleTime(factor);
+    paint();
+  }, { passive: false });
   const orderTools = element('div', undefined, 'actions studio-order-tools');
   const goal = element('p', undefined, 'studio-week-goal');
   const pickStatus = element('small');
@@ -330,7 +372,7 @@ function replayPanel(host, replay, observe, linked) {
     } finally { saving = false; }
   }
   const paint = () => {
-    const state = replay.snapshot();
+    const state = replay.snapshot(CHART_HISTORY);
     const { open, high, low, close, volume } = state.latest;
     info.textContent = 'Replay clock · ' + new Date(state.time).toISOString() + ' · ' + state.revealed + ' revealed';
     dataStats.textContent = 'Latest input candle · Open ' + formatPrice(open) + ' · High ' + formatPrice(high) +
@@ -363,7 +405,13 @@ function replayPanel(host, replay, observe, linked) {
         'O ' + formatPrice(bar.open) + ' · H ' + formatPrice(bar.high) + ' · L ' + formatPrice(bar.low) + ' · C ' + formatPrice(bar.close);
     };
     inspect();
-    plot.replaceChildren(chart(state, picking ? price => {
+    const bars = Number.isFinite(visibleCount) ? state.bars.slice(-visibleCount) : state.bars;
+    const viewLow = Math.min(...bars.map(bar => bar.low));
+    const viewHigh = Math.max(...bars.map(bar => bar.high));
+    const mid = (viewLow + viewHigh) / 2;
+    const halfRange = ((viewHigh-viewLow) / 2 || viewHigh * .005) * priceScale;
+    const view = { ...state, bars, range: { low: mid-halfRange, high: mid+halfRange } };
+    plot.replaceChildren(chart(view, picking ? price => {
       const key = picking;
       paper.setLevel(key, price);
       picking = undefined;
@@ -410,6 +458,8 @@ function replayPanel(host, replay, observe, linked) {
   display.onchange = async () => {
     if (saving || blocked) { display.value = replay.snapshot().minutes; return; }
     replay.setInterval(Number(display.value));
+    visibleCount = Infinity;
+    priceScale = 1;
     if (linked) await persist();
     paint();
   };
@@ -419,7 +469,9 @@ function replayPanel(host, replay, observe, linked) {
   if (week) panel.append(goal);
   const dashboard = element('div', undefined, 'studio-dashboard');
   const chartArea = element('section', undefined, 'studio-chart-area');
-  chartArea.append(orderTools, plot, stats, details, feedback);
+  scaleBar.setAttribute('role', 'group');
+  scaleBar.setAttribute('aria-label', 'Chart scale');
+  chartArea.append(orderTools, plot, scaleBar, stats, details, feedback);
   dashboard.append(chartArea, paper.card);
   panel.append(dashboard);
   host.replaceChildren(panel);
