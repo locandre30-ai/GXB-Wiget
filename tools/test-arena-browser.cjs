@@ -69,6 +69,11 @@ async function run() {
     const drill = page.frameLocator('iframe[title="Free Practice training"]');
     await drill.locator('#answers button').first().waitFor();
     assert.equal(await drill.locator('canvas#chart').evaluate(canvas => canvas.width > 0), true);
+    await drill.getByRole('button', { name: '15m', exact: true }).click();
+    assert.equal(await drill.getByRole('button', { name: '15m', exact: true }).getAttribute('aria-pressed'), 'true');
+    await drill.getByText(/^15m · Simulated .+ · O /).waitFor();
+    await drill.getByRole('button', { name: '5m', exact: true }).click();
+    assert.equal(await drill.getByRole('group', { name: 'Drill replay' }).isVisible(), false);
     await screenshot('04-practice-handoff');
     const glossary = drill.getByRole('button', { name: 'dotted word' });
     await glossary.focus();
@@ -85,6 +90,15 @@ async function run() {
     for (let round = 1; round <= 10; round++) {
       await drill.getByText('Round ' + round + ' / 10', { exact: true }).waitFor();
       await drill.locator('#answers button').first().click();
+      if (round === 1) {
+        await drill.getByText(/^0 of \d+ candles revealed$/).waitFor();
+        await drill.getByRole('button', { name: 'Step forward' }).click();
+        await drill.getByText(/^1 of \d+ candles revealed$/).waitFor();
+        await drill.getByRole('button', { name: 'Play replay' }).click();
+        await drill.getByRole('button', { name: 'Pause replay' }).click();
+        await drill.getByRole('button', { name: 'Play replay' }).waitFor();
+      }
+      await drill.getByRole('button', { name: 'Reveal remaining candles' }).click();
       if (round === 1) {
         await page.getByRole('link', { name: 'Command Center', exact: true }).click();
         await page.getByText('1 of 10 decisions saved', { exact: false }).waitFor();
@@ -146,6 +160,7 @@ async function run() {
     await page.getByRole('link', { name: 'Switch profile' }).click();
     await page.getByRole('button', { name: 'Guest practice' }).click();
     await drill.locator('#answers button').first().click();
+      await drill.getByRole('button', { name: 'Reveal remaining candles' }).click();
     await drill.getByRole('button', { name: 'Next Chart →' }).waitFor();
     assert.equal(await page.evaluate(key => localStorage.getItem(key), key), beforeGuest);
     assert.deepEqual(await page.evaluate(oldKey => JSON.parse(localStorage.getItem(oldKey)), oldKey), fixture);

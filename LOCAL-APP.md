@@ -28,6 +28,10 @@ In Settings, **Learning activity** shows the current profile’s latest observat
 
 In Settings, **Save market research** keeps the public HTTPS source, market and time you saved it. Arena does not fetch or verify the source. The AI tutoring prompt previews recent learning evidence, the latest check-in and recent links for the selected market. It is shared only if you copy it and provide it to an assistant. Activity is included in profile backups. Local profiles are for use within this browser, with the same access boundaries as other Arena data.
 
+## ICC chart and replay
+
+The synthetic ICC chart shows numeric price marks, a simulated intraday clock and 5m, 15m, 30m and 1h views. Move across the chart or use its arrow keys to inspect visible candle prices. Choose a drill answer to unlock the outcome. Play or pause the candles, step one at a time, or reveal the remainder to see scoring. With reduced motion enabled, playback starts paused. A forming higher-timeframe candle uses the visible portion only. Changing the chart interval preserves the drill's scoring inputs.
+
 ## First launch and source of truth
 
 Arena Release 1 uses the versioned snapshot in the browser’s `gxb_arena_v2_r1` localStorage key. The shell and the served compatibility entry point use that same snapshot. During migration, the profiles key `gxb_arena_profiles_v1` takes precedence because it owns the profile IDs and may already contain the device-era records. When the profiles key is absent, the device key `gxb_arena_v1` can supply one profile tagged as imported device history. Both original keys are retained verbatim.

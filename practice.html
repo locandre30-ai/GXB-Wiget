@@ -319,6 +319,12 @@
     .ask:hover{ border-color: rgba(103,214,255,.6); background: rgba(103,214,255,.13); transform: translateY(-1px); }
 
     /* Synthetic data badge */
+    .iccChartTools { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:10px 0; color:var(--muted); font-size:.82rem }
+    .iccChartTools[hidden] { display:none }
+    .iccChartTools button { padding:6px 10px; min-height:34px; border:1px solid var(--line); border-radius:6px; background:var(--bg1); color:var(--ink); cursor:pointer }
+    .iccChartTools button[aria-pressed="true"] { border-color:var(--gold); color:var(--gold) }
+    .iccChartTools button:disabled { opacity:.55; cursor:default }
+    .iccChartReadout { margin:6px 0; color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums }
     .synthTag{
       position:absolute; top:8px; left:8px;
       padding: 4px 9px; border-radius: 999px;
@@ -619,10 +625,25 @@
 
       <div class="chips" id="chips" role="group" aria-label="Focus area selector"></div>
 
+      <div class="iccChartTools" role="group" aria-label="Chart timeframe">
+        <span>Timeframe</span>
+        <button type="button" data-icc-frame="5" aria-pressed="true">5m</button>
+        <button type="button" data-icc-frame="15" aria-pressed="false">15m</button>
+        <button type="button" data-icc-frame="30" aria-pressed="false">30m</button>
+        <button type="button" data-icc-frame="60" aria-pressed="false">1h</button>
+      </div>
       <div class="stage">
         <span class="synthTag">Synthetic data · training only</span>
-        <canvas id="chart"></canvas>
+        <canvas id="chart" tabindex="0" aria-label="Synthetic candlestick chart. Use arrow keys to inspect visible candles."></canvas>
         <canvas id="fx"></canvas>
+      </div>
+
+      <p id="iccChartReadout" class="iccChartReadout" aria-live="polite"></p>
+      <div class="iccChartTools" id="iccReplay" role="group" aria-label="Drill replay" hidden>
+        <button type="button" id="iccReplayPlay">Play</button>
+        <button type="button" id="iccReplayStep">Step forward</button>
+        <button type="button" id="iccReplayEnd">Reveal remaining candles</button>
+        <span id="iccReplayStatus" role="status"></span>
       </div>
 
       <div class="sessionRow">
@@ -1469,12 +1490,30 @@
       redraw();
     }
 
-    function drawChart(bars, revealedFuture, sc){
+    function visibleCandles(bars, revealedFuture, minutes){
+      const size = minutes / 5;
+      const visible = bars.concat(revealedFuture);
+      const output = [];
+      for(let start=0; start<visible.length; start+=size){
+        const group=visible.slice(start,start+size);
+        output.push({o:group[0].o,h:Math.max(...group.map(b=>b.h)),l:Math.min(...group.map(b=>b.l)),
+          c:group.at(-1).c,start,revealed:start+group.length>bars.length,partial:group.length<size});
+      }
+      return output;
+    }
+
+    function iccTime(index){
+      const minutes=9*60+30+index*5;
+      const hours=String(Math.floor(minutes/60)%24).padStart(2,"0");
+      return hours+":"+String(minutes%60).padStart(2,"0");
+    }
+
+    function drawChart(bars, revealedFuture, sc, minutes=5, selection=-1){
       const W = chart.width, H = chart.height;
       cctx.clearRect(0,0,W,H);
       if(!bars || !bars.length) return;
 
-      const all = bars.concat(revealedFuture);
+      const all = visibleCandles(bars, revealedFuture, minutes);
       let lo = Math.min(...all.map(b=>b.l)), hi = Math.max(...all.map(b=>b.h));
       if(sc && sc.lines){
         for(const v of Object.values(sc.lines)){ if(v!=null){ lo=Math.min(lo,v); hi=Math.max(hi,v);} }
@@ -1485,19 +1524,32 @@
       }
       const padY = (hi-lo)*0.08 || 1; lo -= padY; hi += padY;
 
-      const mL = 8*DPR, mR = 8*DPR, mT = 10*DPR, mB = 10*DPR;
+      const mL = 8*DPR, mR = 62*DPR, mT = 25*DPR, mB = 26*DPR;
       const total = all.length;
       const cw = (W - mL - mR) / total;
       const bw = Math.max(2*DPR, cw*0.62);
       const y = p => mT + (hi-p)/(hi-lo) * (H-mT-mB);
       const x = i => mL + i*cw + cw/2;
 
-      // grid
-      cctx.strokeStyle = "rgba(255,255,255,.05)";
-      cctx.lineWidth = 1*DPR;
-      for(let g=1;g<5;g++){
-        const gy = mT + g*(H-mT-mB)/5;
+      // Plot and axes are derived only from visible candles and decision guides.
+      cctx.strokeStyle = "rgba(255,255,255,.09)";
+      cctx.fillStyle = "#abb9ce";
+      cctx.lineWidth = DPR;
+      cctx.font = `${11*DPR}px ui-monospace, monospace`;
+      cctx.textAlign = "left";
+      cctx.textBaseline = "middle";
+      for(let g=0;g<=4;g++){
+        const price=hi-(hi-lo)*g/4, gy=y(price);
         cctx.beginPath(); cctx.moveTo(mL,gy); cctx.lineTo(W-mR,gy); cctx.stroke();
+        cctx.fillText(price.toFixed(2),W-mR+7*DPR,gy);
+      }
+      cctx.beginPath();cctx.moveTo(W-mR,mT);cctx.lineTo(W-mR,H-mB);cctx.lineTo(mL,H-mB);cctx.stroke();
+      const tickCount=Math.min(total,Math.max(2,Math.floor((W-mR-mL)/(62*DPR))));
+      cctx.textAlign = "center";
+      for(let i=0;i<tickCount;i++){
+        const index=tickCount===1?0:Math.round(i*(total-1)/(tickCount-1));
+        const px=Math.min(W-mR-21*DPR,Math.max(mL+21*DPR,x(index)));
+        cctx.fillText(iccTime(all[index].start),px,H-10*DPR);
       }
 
       // reference lines
@@ -1532,7 +1584,7 @@
       function candle(b, i, ghost){
         const up = b.c >= b.o;
         const col = up ? CANDLES[0] : CANDLES[1];
-        cctx.globalAlpha = ghost ? .95 : 1;
+        cctx.globalAlpha = b.partial ? .6 : ghost ? .95 : 1;
         cctx.strokeStyle = col; cctx.fillStyle = col;
         cctx.lineWidth = Math.max(1, 1.2*DPR);
         const cx = x(i);
@@ -1541,12 +1593,17 @@
         cctx.fillRect(cx-bw/2, top, bw, Math.max(1.5*DPR, bot-top));
         cctx.globalAlpha = 1;
       }
-      bars.forEach((b,i)=>candle(b,i,false));
-      revealedFuture.forEach((b,i)=>candle(b, bars.length+i, true));
+      all.forEach((bar,index)=>candle(bar,index,bar.revealed));
+      if(selection>=0 && selection<all.length){
+        cctx.strokeStyle="rgba(205,177,106,.65)";
+        cctx.setLineDash([3*DPR,3*DPR]);
+        cctx.beginPath();cctx.moveTo(x(selection),mT);cctx.lineTo(x(selection),H-mB);cctx.stroke();
+        cctx.setLineDash([]);
+      }
 
       // entry marker for the Exits drill
       if(sc && sc.entryMark){
-        const cx = x(sc.entryMark.idx), cy = y(sc.entryMark.price);
+        const cx = x(Math.floor(sc.entryMark.idx/(minutes/5))), cy = y(sc.entryMark.price);
         cctx.fillStyle = "rgba(205,177,106,.95)";
         cctx.beginPath();
         cctx.moveTo(cx, cy+9*DPR); cctx.lineTo(cx-5*DPR, cy+16*DPR); cctx.lineTo(cx+5*DPR, cy+16*DPR);
@@ -1557,7 +1614,7 @@
       cctx.strokeStyle = "rgba(103,214,255,.28)";
       cctx.setLineDash([3*DPR,4*DPR]);
       cctx.beginPath();
-      const dvx = mL + bars.length*cw;
+      const dvx = mL + bars.length/(minutes/5)*cw;
       cctx.moveTo(dvx, mT); cctx.lineTo(dvx, H-mB); cctx.stroke();
       cctx.setLineDash([]);
     }
@@ -1596,6 +1653,8 @@
     let revealed = [];
     let answering = false;
     let scenarioSeed = null;
+    let chartMinutes = 5;
+    let inspectedBar = -1;
 
     function newSession(){
       SES = {
@@ -1644,6 +1703,8 @@
 
     function showRound(){
       CUR = pickDrill(scenarioSeed);
+      inspectedBar = -1;
+      $("iccReplay").hidden = true;
       revealed = [];
       answering = false;
       $("roundLbl").textContent = `Round ${SES.round} / ${ROUNDS_PER_SESSION}`;
@@ -1655,6 +1716,7 @@
     }
 
     function resumePractice(){
+      $("iccReplay").hidden=true;
       if(!ST.draft){
         FOCUS = FOCI[0];
         paintFocus();
@@ -1720,7 +1782,80 @@
     }
 
     function redraw(){
-      drawChart(CUR ? CUR.bars : null, revealed, CUR);
+      drawChart(CUR?.bars, revealed, CUR, chartMinutes, inspectedBar);
+      const readout=$("iccChartReadout");
+      if(!CUR){readout.textContent="";return;}
+      const visible=visibleCandles(CUR.bars,revealed,chartMinutes);
+      const bar=visible[inspectedBar]??visible.at(-1);
+      readout.textContent=`${chartMinutes}m · Simulated ${iccTime(bar.start)} · O ${bar.o.toFixed(2)} · H ${bar.h.toFixed(2)} · L ${bar.l.toFixed(2)} · C ${bar.c.toFixed(2)}${bar.partial?" · forming":""}`;
+    }
+
+    for(const control of document.querySelectorAll("[data-icc-frame]")){
+      control.onclick=()=>{
+        chartMinutes=Number(control.dataset.iccFrame);
+        inspectedBar=-1;
+        for(const button of document.querySelectorAll("[data-icc-frame]"))button.setAttribute("aria-pressed",String(button===control));
+        redraw();
+      };
+    }
+    chart.addEventListener("pointermove",event=>{
+      if(!CUR)return;
+      const count=visibleCandles(CUR.bars,revealed,chartMinutes).length;
+      const bounds=chart.getBoundingClientRect();
+      const portion=(event.clientX-bounds.left-8)/Math.max(1,bounds.width-70);
+      const next=Math.max(0,Math.min(count-1,Math.floor(portion*count)));
+      if(next!==inspectedBar){inspectedBar=next;redraw();}
+    });
+    chart.addEventListener("pointerleave",()=>{inspectedBar=-1;redraw();});
+    chart.addEventListener("keydown",event=>{
+      if(!CUR||!["ArrowLeft","ArrowRight"].includes(event.key))return;
+      event.preventDefault();
+      const last=visibleCandles(CUR.bars,revealed,chartMinutes).length-1;
+      const from=inspectedBar<0?last:inspectedBar;
+      inspectedBar=Math.max(0,Math.min(last,from+(event.key==="ArrowLeft"?-1:1)));
+      redraw();
+    });
+
+    function revealOutcome(future){
+      const region=$("iccReplay"), play=$("iccReplayPlay"), step=$("iccReplayStep"), all=$("iccReplayEnd"), status=$("iccReplayStatus");
+      region.hidden=false;
+      inspectedBar=-1;
+      let timer;
+      return new Promise(resolve=>{
+        function paint(){
+          status.textContent=revealed.length+" of "+future.length+" candles revealed";
+          play.textContent=timer?"Pause":"Play";
+          play.setAttribute("aria-label",timer?"Pause replay":"Play replay");
+          redraw();
+        }
+        function pause(){
+          if(timer)clearInterval(timer);
+          timer=undefined;
+        }
+        function finish(){
+          pause();
+          paint();
+          play.disabled=step.disabled=all.disabled=true;
+          status.textContent="Replay complete";
+          resolve();
+        }
+        function advance(){
+          if(revealed.length<future.length)revealed.push(future[revealed.length]);
+          if(revealed.length===future.length)finish();
+          else paint();
+        }
+        play.disabled=step.disabled=all.disabled=false;
+        play.onclick=()=>{
+          if(timer)pause();
+          else timer=setInterval(advance,300);
+          paint();
+        };
+        step.onclick=()=>{pause();advance();};
+        all.onclick=()=>{revealed.push(...future.slice(revealed.length));finish();};
+        if(!future.length){finish();return;}
+        if(!REDUCED)timer=setInterval(advance,300);
+        paint();
+      });
     }
 
     async function answer(key, btnEl){
@@ -1754,13 +1889,7 @@
         tradeR = key === "hold" ? (CUR.truth === "hold" ? 1 : -1) : 0;
       }
 
-      // reveal the future bar by bar
-      const step = REDUCED ? 0 : 85;
-      for(const b of CUR.future){
-        revealed.push(b);
-        redraw();
-        if(step) await new Promise(r=>setTimeout(r, step));
-      }
+      await revealOutcome(CUR.future);
 
       const correct = key === CUR.truth;
       if(tradeR !== null) SES.rTotal += tradeR;
