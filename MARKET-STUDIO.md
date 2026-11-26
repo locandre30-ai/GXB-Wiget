@@ -4,9 +4,9 @@ Launch with `Start GXB.cmd` or run `node tools/preview.cjs` and open http://127.
 
 ## Practice a trading week
 
-Choose Gold or Stocks and ETFs, then select **Start practice week**. This built-in scenario contains five synthetic trading days, with six hourly candles per day. Use **Reveal next candle** for a single step or **Play replay** and **Pause replay** to advance the clock. Trading two or three completed setups is a practice goal. It is also valid to let the week finish with fewer trades.
+Choose Gold or Stocks and ETFs, then select **Start practice week**. New weeks contain seven continuous synthetic days with 24 hourly candles per day. The first eight candles are visible when you start so you have a setup to read. Earlier five-day checkpoints can still be resumed. Use **Reveal next candle**, **Advance 24h**, or **Play replay** and **Pause replay** to advance the clock. Trading two or three completed setups is a practice goal. It is also valid to let the week finish with fewer trades.
 
-Choose **Buy / Long** or **Sell / Short** and enter units. Use **Pick stop on chart** or **Pick target on chart** and click a visible price, or type exact prices into the ticket. The ticket queues a paper market entry for the next revealed open. Pending and active order levels within the visible chart range appear as guides.
+Hover over a candle, or focus the chart and press the left or right arrow key, to inspect its UTC time, price, and OHLC. Choose **Buy / Long** or **Sell / Short** to prefill an editable one-unit paper order ticket using the latest visible range. **Hold / Wait** advances one candle without submitting an order. Use **Pick stop on chart** or **Pick target on chart** and click a visible price, or type exact prices into the ticket. The ticket queues a paper market entry for the next revealed open. Pending and active order levels within the visible chart range appear as guides.
 
 Use **Export checkpoint** to keep your place. To resume this built-in week, select the same market and open **Restore a practice-week checkpoint**. The built-in scenario provides repeatable training. To keep the results in an ongoing paper account, use **Start linked practice week** with a Portfolio Lab account.
 
@@ -20,7 +20,7 @@ Settings backups include both accounts and the linked-week checkpoint. Linked ac
 
 ## Load candles
 
-Choose **Stocks and ETFs** or **XAU/USD Gold**. Enter a symbol for stocks and ETFs, name the data source, specify its input interval, and select the local CSV. The header is:
+Expand **Import historical CSV** below the chart. Choose **Stocks and ETFs** or **XAU/USD Gold**. Enter a symbol for stocks and ETFs, name the data source, specify its input interval, and select the local CSV. The header is:
 
 ```text
 timestamp,open,high,low,close,volume

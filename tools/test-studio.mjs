@@ -125,3 +125,13 @@ test('built-in weeks have five distinct days and can complete multiple simulated
     assert.equal(practiceDay(replay.snapshot().time), 5);
   }
 });
+
+test('new practice weeks span 168 hourly candles while older scenarios remain available', async () => {
+  const { practiceWeek, CURRENT_WEEK_VERSION, practiceDay } = await import('../arena/studio-week.mjs');
+  const legacy = practiceWeek('gold', 1).dataset;
+  const updated = practiceWeek('gold', CURRENT_WEEK_VERSION).dataset;
+  assert.equal(legacy.bars.length, 30);
+  assert.equal(updated.bars.length, 168);
+  updated.bars.slice(1).forEach((bar, index) => assert.equal(bar.time - updated.bars[index].time, 3600000));
+  assert.equal(practiceDay(updated.bars.at(-1).time, updated.metadata), 7);
+});

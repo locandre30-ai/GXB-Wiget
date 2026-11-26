@@ -264,3 +264,24 @@ a.academy-track-card:hover, .academy-directory-card:hover { border-color: var(--
 .portfolio-metrics dt { color: var(--muted); font-size: .84rem; }
 .portfolio-metrics dd { margin: 3px 0 0; font-weight: 700; color: var(--gold); }
 @media(max-width: 690px) { .portfolio-grid { grid-template-columns: 1fr; } }
+
+.studio-dashboard { display: grid; grid-template-columns: minmax(0,1fr) minmax(255px,305px); gap: 14px; align-items: start; }
+.studio-chart-area, .studio-dashboard .studio-paper { min-width: 0; }
+.studio-dashboard .studio-paper { margin: 0; border: 1px solid var(--border); padding: 12px; border-radius: 8px; background: var(--background); }
+.studio-dashboard .studio-paper > p:empty, .studio-chart-area > p:empty { display: none; }
+.studio-dashboard .studio-paper .two { gap: 6px; }
+.studio-dashboard .studio-paper input, .studio-dashboard .studio-paper select { min-width: 0; padding-inline: 8px; }
+.studio-dashboard .studio-paper details .field { margin-top: 8px; }
+.studio-csv { margin-top: 12px; }
+.studio-csv > summary { font-weight: 650; }
+.studio-csv > p { margin-top: 8px; }
+.studio-quick { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
+.studio-quick button { font-size: .79rem; padding: 5px; }
+.studio-quick .studio-buy { color: #65dbb5; }
+.studio-quick .studio-sell { color: #ff9cac; }
+.studio-inspection { font: .79rem/1.5 ui-monospace, monospace; margin-top: 8px; min-height: 2.2em; }
+.studio-crosshair line { stroke: #d7b878; stroke-dasharray: 4 3; opacity: .75; pointer-events: none; }
+.studio-cross-label { fill: #f6d893; font: 11px ui-monospace,monospace; stroke: var(--background); stroke-width: 3px; paint-order: stroke; }
+.studio-plot svg { cursor: crosshair; }
+.studio-order-tools { margin-bottom: 6px; }
+@media (max-width: 1030px) { .studio-dashboard { grid-template-columns: minmax(0,1fr); } }

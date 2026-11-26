@@ -47,7 +47,7 @@ export async function datasetId(text, metadata) {
 }
 
 export function displayIntervals(input) {
-  return RESOLUTIONS.filter(minutes => minutes >= input && minutes % input === 0);
+  return [...RESOLUTIONS.slice(0, -1), 240, 1440].filter(minutes => minutes >= input && minutes % input === 0);
 }
 
 function aggregate(bars, interval) {

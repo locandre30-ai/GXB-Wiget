@@ -22,12 +22,14 @@ async function run() {
       await page.getByRole('heading', { name: 'Market Studio', exact: true }).waitFor();
     };
     const load = async (file, checkpoint) => {
+      if (!await page.getByLabel('Candle CSV').isVisible()) await page.getByText('Import historical CSV', { exact: true }).click();
       await page.getByLabel('Candle CSV').setInputFiles(file);
       await page.getByLabel('Checkpoint (optional)').setInputFiles(checkpoint || []);
       await page.getByRole('button', { name: 'Load replay' }).click();
       await page.getByText(checkpoint ? 'Checkpoint restored.' : 'Replay loaded.', { exact: true }).waitFor();
     };
     const plan = async () => {
+      if (!await page.getByLabel('Fee per fill').isVisible()) await page.getByText('Fees and slippage', { exact: true }).click();
       await page.getByLabel('Units', { exact: true }).fill('2');
       await page.getByLabel('Stop price').fill('99');
       await page.getByLabel('Target price').fill('108');
@@ -40,6 +42,7 @@ async function run() {
     await page.getByLabel('Local profile name').fill('Replay Tester');
     await page.getByRole('button', { name: 'Create profile and enter' }).click();
     await enterStudio();
+    if (!await page.getByLabel('Market', { exact: true }).isVisible()) await page.getByText('Import historical CSV', { exact: true }).click();
     await page.getByLabel('Market', { exact: true }).selectOption('stocks');
     await page.getByLabel('Instrument symbol').fill('SPY');
     await page.getByLabel('Data source').fill('Synthetic browser test');
@@ -59,6 +62,7 @@ async function run() {
     assert.notEqual(await chart.evaluate(node => node.outerHTML), first);
 
     await page.reload();
+    if (!await page.getByLabel('Market', { exact: true }).isVisible()) await page.getByText('Import historical CSV', { exact: true }).click();
     await page.getByLabel('Market', { exact: true }).selectOption('stocks');
     await page.getByLabel('Instrument symbol').fill('SPY');
     await page.getByLabel('Data source').fill('Synthetic browser test');
@@ -66,6 +70,7 @@ async function run() {
     await page.getByText(/Paper entry queued/).waitFor();
     assert.equal(await chart.evaluate(node => node.outerHTML), first);
     await page.getByRole('button', { name: 'Reveal next candle' }).click();
+    await page.getByText('Paper trade history', { exact: true }).click();
     await page.getByText('Closed paper trades · 1', { exact: true }).waitFor();
     await page.getByText(/Studio realized P\/L -7/).waitFor();
     if (process.env.STUDIO_SCREENSHOT) {
@@ -87,7 +92,15 @@ async function run() {
     await enterStudio();
     await page.getByLabel('Practice market').selectOption('gold');
     await page.getByRole('button', { name: 'Start practice week' }).click();
-    await page.getByText(/Synthetic week · Day 1 of 5/).waitFor();
+    await page.getByText(/Synthetic week · Day 1 of 7/).waitFor();
+    assert.equal(await page.getByLabel('Candle CSV').isVisible(), false);
+    await page.setViewportSize({ width: 1360, height: 960 });
+    await chart.scrollIntoViewIfNeeded();
+    await chart.hover({ position: { x: 100, y: 95 } });
+    await page.locator('.studio-crosshair[visibility="visible"]').waitFor();
+    await page.locator('.studio-inspection').filter({ hasText: /UTC · Price/ }).waitFor();
+    await page.getByRole('button', { name: 'Buy / Long', exact: true }).click();
+    assert.ok(Number(await page.getByLabel('Target price').inputValue()) > Number(await page.getByLabel('Stop price').inputValue()));
     await page.getByRole('button', { name: 'Pick stop on chart' }).click();
     await page.setViewportSize({ width: 1360, height: 960 });
     await chart.scrollIntoViewIfNeeded();
@@ -96,12 +109,14 @@ async function run() {
     await page.mouse.click(mid, bounds.y + bounds.height * .65);
     assert.ok(Number(await page.getByLabel('Stop price').inputValue()) > 0);
     await page.getByRole('button', { name: 'Pick target on chart' }).click();
-    await page.mouse.click(mid, bounds.y + bounds.height * .25);
+    await chart.scrollIntoViewIfNeeded();
+    const targetBounds = await chart.boundingBox();
+    await page.mouse.click(mid, targetBounds.y + targetBounds.height * .25);
     assert.ok(Number(await page.getByLabel('Target price').inputValue()) > Number(await page.getByLabel('Stop price').inputValue()));
     await page.getByRole('button', { name: 'Play replay' }).click();
     await page.getByRole('button', { name: 'Pause replay' }).click();
-    for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Reveal next candle' }).click();
-    await page.getByText(/Synthetic week · Day 2 of 5/).waitFor();
+    await page.getByRole('button', { name: 'Advance 24h' }).click();
+    await page.getByText(/Synthetic week · Day 2 of 7/).waitFor();
     const weekDownload = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export checkpoint' }).click();
     const weekFile = await weekDownload;
@@ -111,9 +126,15 @@ async function run() {
     await page.getByText('Restore a practice-week checkpoint', { exact: true }).click();
     await page.getByLabel('Practice-week checkpoint file').setInputFiles({ name: 'week.json', mimeType: 'application/json', buffer: weekBackup });
     await page.getByRole('button', { name: 'Restore practice week' }).click();
-    await page.getByText(/Synthetic week · Day 2 of 5/).waitFor();
+    await page.getByText(/Synthetic week · Day 2 of 7/).waitFor();
+    if (process.env.STUDIO_DASHBOARD_SCREENSHOT) {
+      await page.getByRole('button', { name: 'Buy / Long', exact: true }).click();
+      await chart.scrollIntoViewIfNeeded();
+      await chart.hover({ position: { x: 260, y: 120 } });
+      await page.screenshot({ path: process.env.STUDIO_DASHBOARD_SCREENSHOT, fullPage: true, animations: 'disabled' });
+    }
     assert.deepEqual(errors, []);
-    console.log('PASS: Stocks and ETFs and Gold replay, visible-chart isolation, next-event-only paper fills, mobile layout, checkpoint reload, separation from legacy scoring, five-day practice, chart picking, and week checkpoint restore.');
+    console.log('PASS: Stocks and ETFs and Gold replay, visible-chart isolation, next-event-only paper fills, mobile layout, checkpoint reload, separation from legacy scoring, seven-day practice, crosshair, chart picking, and week checkpoint restore.');
   } finally {
     await browser.close();
   }

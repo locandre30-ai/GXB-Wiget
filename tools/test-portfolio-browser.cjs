@@ -30,6 +30,7 @@ async function run() {
     await page.getByLabel('Units', { exact: true }).fill('5');
     await page.getByLabel('Stop price').fill('430');
     await page.getByLabel('Target price').fill('530');
+    await page.getByText('Fees and slippage', { exact: true }).click();
     await page.getByLabel('Fee per fill').fill('1');
     await page.getByRole('button', { name: 'Queue paper entry' }).click();
     await page.getByText(/exceeds the account’s available paper cash/).waitFor();
@@ -46,9 +47,10 @@ async function run() {
     assert.equal(await stocks.getByRole('button', { name: 'Add paper funds' }).count(), 0);
     await stocks.getByRole('link', { name: 'Resume linked practice week' }).click();
     await page.getByRole('button', { name: 'Resume linked practice week' }).click();
-    for (let i = 3; i <= 30; i++) {
-      await page.getByRole('button', { name: 'Reveal next candle' }).click();
-      await page.locator('.studio-clock').filter({ hasText: new RegExp('· ' + i + ' revealed') }).waitFor();
+    for (let i = 1; i <= 7; i++) {
+      await page.getByRole('button', { name: 'Advance 24h' }).click();
+      const revealed = Math.min(168, 9 + i * 24);
+      await page.locator('.studio-clock').filter({ hasText: new RegExp('· ' + revealed + ' revealed') }).waitFor();
     }
     await page.getByRole('button', { name: 'Settle paper week' }).click();
     await page.getByText(/Paper week settled/).waitFor();

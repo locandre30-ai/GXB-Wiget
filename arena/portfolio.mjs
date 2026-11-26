@@ -1,5 +1,5 @@
 import { createReplay, datasetId } from './replay.mjs';
-import { practiceWeek } from './studio-week.mjs';
+import { practiceWeek, revealPracticeOpening } from './studio-week.mjs';
 const MARKETS = ['gold', 'stocks'];
 const validMoney = value => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 1e9;
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -31,10 +31,11 @@ export function cleanPortfolio(raw) {
         run.checkpoint?.format === 'gxb-market-studio-checkpoint' && run.checkpoint.version === 1 &&
         typeof run.checkpoint.datasetId === 'string' && /^[a-f0-9]{64}$/.test(run.checkpoint.datasetId) &&
         run.complete === (run.checkpoint.settled === true) &&
-        Number.isSafeInteger(run.checkpoint.cursor) && run.checkpoint.cursor >= 1 && run.checkpoint.cursor <= 30 &&
+        Number.isSafeInteger(run.checkpoint.cursor) && run.checkpoint.cursor >= 1 && run.checkpoint.cursor <= (run.scenarioVersion === 2 ? 168 : 30) &&
         Array.isArray(run.checkpoint.commands) && run.checkpoint.commands.length <= 10000) {
       account.run = {
         id: run.id, funding: run.funding, complete: run.complete,
+        ...(run.scenarioVersion === 2 ? { scenarioVersion: 2 } : {}),
         checkpoint: { format: run.checkpoint.format, version: 1, datasetId: run.checkpoint.datasetId,
           cursor: run.checkpoint.cursor, minutes: run.checkpoint.minutes, ...(run.complete ? { settled: true } : {}), commands: run.checkpoint.commands.map(event => ({
           cursor: event?.cursor,
@@ -89,7 +90,8 @@ export function newPaperPortfolio(starting) {
 }
 
 export async function portfolioReplay(market, run) {
-  const { dataset, text } = practiceWeek(market);
+  const { dataset, text } = practiceWeek(market, run.scenarioVersion);
   const id = await datasetId(text, dataset.metadata);
-  return createReplay(dataset, id, run.checkpoint, run.funding);
+  const replay = createReplay(dataset, id, run.checkpoint, run.funding);
+  return run.checkpoint ? replay : revealPracticeOpening(replay, run.scenarioVersion);
 }

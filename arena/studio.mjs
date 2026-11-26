@@ -1,5 +1,5 @@
 import { accountTotals, portfolioReplay } from './portfolio.mjs';
-import { practiceDay, practiceWeek, WEEK_GOAL } from './studio-week.mjs';
+import { CURRENT_WEEK_VERSION, practiceDay, practiceWeek, revealPracticeOpening, WEEK_GOAL } from './studio-week.mjs';
 import { createReplay, datasetId, displayIntervals, parseReplayFile } from './replay.mjs';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -41,8 +41,8 @@ function formatPrice(value) {
   return value.toLocaleString(undefined, { maximumFractionDigits: 8 });
 }
 
-function chart({ bars, range, paper }, pick) {
-  const plot = svg('svg', { viewBox: '0 0 820 300', role: 'img', 'aria-label': 'Candlestick chart using revealed candles' });
+function chart({ bars, range, paper }, pick, inspect) {
+  const plot = svg('svg', { viewBox: '0 0 820 300', role: 'img', 'aria-label': 'Candlestick chart using revealed candles. Use left and right arrow keys to inspect.', tabindex: 0 });
   const spread = range.high - range.low || range.high * .01;
   const y = value => 20 + (range.high - value + spread * .05) / (spread * 1.1) * 260;
   const bucket = 730 / bars.length;
@@ -84,22 +84,65 @@ function chart({ bars, range, paper }, pick) {
     text.textContent = label + ' ' + formatPrice(price);
     plot.append(text);
   }
+  const crosshair = svg('g', { visibility: 'hidden', class: 'studio-crosshair', 'aria-hidden': 'true' });
+  const horizontal = svg('line', { x1: 12, x2: 742 });
+  const vertical = svg('line', { y1: 20, y2: 280 });
+  const axisLabel = svg('text', { class: 'studio-cross-label', x: 746 });
+  const timeLabel = svg('text', { class: 'studio-cross-label', y: 291, 'text-anchor': 'middle' });
+  crosshair.append(horizontal, vertical, axisLabel, timeLabel);
+  plot.append(crosshair);
+  let inspected = bars.length - 1;
+  function at(index, pointerY) {
+    inspected = index;
+    const bar = bars[index];
+    const price = range.high + spread * .05 - (pointerY - 20) / 260 * spread * 1.1;
+    const px = 12 + (index + .5) * bucket;
+    crosshair.setAttribute('visibility', 'visible');
+    horizontal.setAttribute('y1', pointerY);
+    horizontal.setAttribute('y2', pointerY);
+    vertical.setAttribute('x1', px);
+    vertical.setAttribute('x2', px);
+    axisLabel.setAttribute('y', pointerY + 4);
+    axisLabel.textContent = price.toLocaleString(undefined, { maximumFractionDigits: price >= 1 ? 2 : 7 });
+    timeLabel.setAttribute('x', Math.max(54, Math.min(696, px)));
+    timeLabel.textContent = new Date(bar.time).toISOString().slice(5, 16).replace('T', ' ');
+    inspect(bar, price);
+    return price;
+  }
+  function point(event) {
+    const matrix = plot.getScreenCTM();
+    if (!matrix) return null;
+    const coordinates = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    if (coordinates.x < 12 || coordinates.x > 742 || coordinates.y < 20 || coordinates.y > 280) return null;
+    return { index: Math.min(bars.length - 1, Math.floor((coordinates.x - 12) / bucket)), y: coordinates.y };
+  }
+  function clear() { crosshair.setAttribute('visibility', 'hidden'); inspect(); }
+  plot.addEventListener('pointermove', event => {
+    const coordinates = point(event);
+    if (coordinates) at(coordinates.index, coordinates.y);
+    else clear();
+  });
+  plot.addEventListener('pointerleave', clear);
+  plot.addEventListener('blur', clear);
+  plot.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Escape') { clear(); return; }
+    const index = Math.max(0, Math.min(bars.length - 1, inspected + (event.key === 'ArrowLeft' ? -1 : 1)));
+    at(index, y(bars[index].close));
+  });
   if (pick) {
     plot.classList.add('studio-picking');
     plot.addEventListener('click', event => {
-      const matrix = plot.getScreenCTM();
-      if (!matrix) return;
-      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-      if (point.x < 12 || point.x > 742 || point.y < 20 || point.y > 280) return;
-      const price = range.high + spread * .05 - (point.y - 20) / 260 * spread * 1.1;
-      pick(Number(price.toFixed(2)));
+      const coordinates = point(event);
+      if (coordinates) pick(Number(at(coordinates.index, coordinates.y).toFixed(8)));
     });
   }
   return plot;
 }
 
-function downloadCheckpoint(replay) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(replay.checkpoint(), null, 2)], { type: 'application/json' }));
+function downloadCheckpoint(replay, scenarioVersion) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ ...replay.checkpoint(), ...(scenarioVersion ? { scenarioVersion } : {}) }, null, 2)], { type: 'application/json' }));
   const link = element('a');
   link.href = url;
   link.download = 'gxb-market-studio-checkpoint.json';
@@ -107,16 +150,18 @@ function downloadCheckpoint(replay) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function paperPanel(commit) {
+function paperPanel(commit, wait, getState, pause) {
   const card = element('section', undefined, 'stack studio-paper');
-  card.append(element('h2', 'Paper execution'), element('small', 'One simulated position per replay. Entries and manual exits use the next revealed open. Stop wins an ambiguous stop/target bar. New simulated decisions inform your Academy learning plan.'));
+  card.append(element('h2', 'Paper order'));
   const form = element('form', undefined, 'stack');
   const fields = element('div', undefined, 'two');
   const side = options([['long', 'Buy / Long'], ['short', 'Sell / Short']]);
   fields.append(field('Direction', side));
+  const advanced = element('details');
+  advanced.append(element('summary', 'Fees and slippage'));
   const inputs = {};
   for (const [key, label, value] of [
-    ['quantity', 'Units', ''], ['stop', 'Stop price', ''], ['target', 'Target price', ''],
+    ['quantity', 'Units', '1'], ['stop', 'Stop price', ''], ['target', 'Target price', ''],
     ['fee', 'Fee per fill', '0'], ['slippage', 'Adverse slippage (bps)', '0']
   ]) {
     const input = element('input');
@@ -126,11 +171,33 @@ function paperPanel(commit) {
     input.required = true;
     input.value = value;
     inputs[key] = input;
-    fields.append(field(label, input));
+    const location = key === 'fee' || key === 'slippage' ? advanced : fields;
+    location.append(field(label, input));
   }
+  const quick = element('div', undefined, 'studio-quick');
+  const buy = element('button', 'Buy / Long', 'studio-buy');
+  const hold = element('button', 'Hold / Wait');
+  const sell = element('button', 'Sell / Short', 'studio-sell');
+  for (const button of [buy, hold, sell]) button.type = 'button';
+  quick.append(buy, hold, sell);
+  function prepare(direction) {
+    pause();
+    const state = getState();
+    const { high, low, close } = state.latest;
+    const distance = Math.min(close * .2, Math.max(high - low, close * .002));
+    const sign = direction === 'long' ? 1 : -1;
+    side.value = direction;
+    const price = value => state.metadata.practiceWeek ? value.toFixed(2) : String(Number(value.toPrecision(10)));
+    inputs.stop.value = price(close - sign * distance);
+    inputs.target.value = price(close + sign * 2 * distance);
+    submit.focus();
+  }
+  buy.onclick = () => prepare('long');
+  sell.onclick = () => prepare('short');
+  hold.onclick = wait;
   const submit = element('button', 'Queue paper entry');
   submit.type = 'submit';
-  form.append(fields, submit);
+  form.append(quick, fields, submit, element('small', 'Paper entries fill at the next revealed open.'), advanced);
   const cancel = element('button', 'Cancel pending order');
   cancel.type = 'button';
   const exit = element('button', 'Queue paper exit');
@@ -151,12 +218,15 @@ function paperPanel(commit) {
   };
   cancel.onclick = () => run({ type: 'cancel' });
   exit.onclick = () => run({ type: 'exit' });
-  card.append(form, actions, status, summary, history);
+  const trades = element('details');
+  trades.append(element('summary', 'Paper trade history'), history);
+  card.append(form, actions, status, summary, trades);
   return {
     card,
     setLevel(key, price) { inputs[key].value = String(price); },
     paint(paper, ended) {
-      submit.disabled = ended || Boolean(paper.pending || paper.position);
+      submit.disabled = buy.disabled = sell.disabled = ended || Boolean(paper.pending || paper.position);
+      hold.disabled = ended;
       cancel.hidden = !paper.pending;
       exit.hidden = ended || !paper.position || Boolean(paper.pending);
       status.textContent = paper.message;
@@ -181,6 +251,7 @@ function replayPanel(host, replay, observe, linked) {
   const panel = element('section', undefined, 'panel stack studio-chart');
   const heading = element('h2', snapshot.metadata.market === 'gold' ? labelMarket.gold : snapshot.metadata.symbol + ' · ' + labelMarket.stocks);
   const week = snapshot.metadata.practiceWeek === true;
+  const lastWeekBar = state => week && state.revealed >= state.metadata.practiceBars;
   let picking;
   let timer;
   let saving = false;
@@ -192,7 +263,7 @@ function replayPanel(host, replay, observe, linked) {
   next.type = 'button';
   const checkpoint = element('button', 'Export checkpoint');
   checkpoint.type = 'button';
-  checkpoint.onclick = () => downloadCheckpoint(replay);
+  checkpoint.onclick = () => downloadCheckpoint(replay, snapshot.metadata.scenarioVersion);
   const play = element('button', 'Play replay');
   play.type = 'button';
   function pause() {
@@ -202,6 +273,9 @@ function replayPanel(host, replay, observe, linked) {
   }
   const controls = element('div', undefined, 'actions');
   controls.append(field('Chart interval', display), next, play);
+  const day = element('button', 'Advance 24h');
+  day.type = 'button';
+  if (week) controls.append(day);
   if (!linked) controls.append(checkpoint);
   const plot = element('div', undefined, 'studio-plot');
   const orderTools = element('div', undefined, 'actions studio-order-tools');
@@ -223,18 +297,21 @@ function replayPanel(host, replay, observe, linked) {
     orderTools.append(button);
   }
   orderTools.append(pickStatus);
-  const stats = element('p');
+  const stats = element('p', undefined, 'studio-inspection');
+  const details = element('details');
+  const dataStats = element('p');
+  details.append(element('summary', 'Candle details'), dataStats);
   const feedback = element('p');
   feedback.setAttribute('role', 'status');
   const paper = paperPanel(async command => {
     if (saving || blocked) return;
-    if (linked && replay.snapshot().revealed === 30 && command.type !== 'cancel') throw new Error('Settle the week at the final revealed close.');
+    if (linked && lastWeekBar(replay.snapshot()) && command.type !== 'cancel') throw new Error('Settle the week at the final revealed close.');
     pause();
     replay.order(command);
     if (linked) await persist(command);
     else observe(command, snapshot.metadata.market);
     paint();
-  });
+  }, () => { pause(); advance(); }, () => replay.snapshot(), pause);
   async function persist(command) {
     saving = true;
     next.disabled = true;
@@ -253,41 +330,49 @@ function replayPanel(host, replay, observe, linked) {
     const state = replay.snapshot();
     const { open, high, low, close, volume } = state.latest;
     info.textContent = 'Replay clock · ' + new Date(state.time).toISOString() + ' · ' + state.revealed + ' revealed';
-    stats.textContent = 'Latest input candle · Open ' + formatPrice(open) + ' · High ' + formatPrice(high) +
+    dataStats.textContent = 'Latest input candle · Open ' + formatPrice(open) + ' · High ' + formatPrice(high) +
       ' · Low ' + formatPrice(low) + ' · Close ' + formatPrice(close) + ' · Volume ' + formatPrice(volume) +
       ' · SMA (5 closed chart candles) ' + (state.sma5 === null ? '—' : formatPrice(state.sma5));
     if (week) {
       const trades = state.paper.closed.length;
-      goal.textContent = 'Synthetic week · Day ' + practiceDay(state.time) + ' of 5 · ' + trades +
+      goal.textContent = 'Synthetic week · Day ' + practiceDay(state.latest.time, state.metadata) + ' of ' + state.metadata.practiceDays + ' · ' + trades +
         ' closed paper ' + (trades === 1 ? 'trade' : 'trades') + ' · Practice goal ' + WEEK_GOAL.join('–') +
         (trades >= WEEK_GOAL[0] && trades <= WEEK_GOAL[1] ? ' · Goal reached' : '');
     }
     const finished = state.settled || blocked;
     if (linked) {
       next.disabled = finished;
-      play.disabled = finished || state.revealed === 30;
-      next.textContent = state.revealed === 30 && !finished ? 'Settle paper week' : 'Reveal next candle';
+      play.disabled = finished || lastWeekBar(state);
+      next.textContent = lastWeekBar(state) && !finished ? 'Settle paper week' : 'Reveal next candle';
     }
-    const bracketLocked = next.disabled || Boolean(linked && state.revealed === 30) ||
+    day.disabled = finished || lastWeekBar(state);
+    const bracketLocked = next.disabled || Boolean(linked && lastWeekBar(state)) ||
       Boolean(state.paper.pending || state.paper.position);
     if (bracketLocked) picking = undefined;
     for (const [key, button] of Object.entries(levelButtons)) {
       button.disabled = bracketLocked;
       button.setAttribute('aria-pressed', String(picking === key));
     }
+    const inspect = (candle, level) => {
+      const bar = candle ?? state.latest;
+      const utc = new Date(bar.time).toISOString().slice(0, 16).replace('T', ' ');
+      stats.textContent = utc + ' UTC · ' + (candle ? 'Price ' + formatPrice(level) + ' · ' : '') +
+        'O ' + formatPrice(bar.open) + ' · H ' + formatPrice(bar.high) + ' · L ' + formatPrice(bar.low) + ' · C ' + formatPrice(bar.close);
+    };
+    inspect();
     plot.replaceChildren(chart(state, picking ? price => {
       const key = picking;
       paper.setLevel(key, price);
       picking = undefined;
       pickStatus.textContent = (key === 'stop' ? 'Stop' : 'Target') + ' set to ' + formatPrice(price) + '.';
       paint();
-    } : null));
-    paper.paint(state.paper, next.disabled || Boolean(linked && state.revealed === 30));
+    } : null, inspect));
+    paper.paint(state.paper, next.disabled || Boolean(linked && lastWeekBar(state)));
   };
-  async function advance() {
+  async function advance(count = 1) {
     if (!panel.isConnected) { pause(); return; }
     if (saving || blocked) return;
-    if (linked && replay.snapshot().revealed === 30) {
+    if (linked && lastWeekBar(replay.snapshot())) {
       pause();
       replay.settle();
       await persist();
@@ -295,25 +380,29 @@ function replayPanel(host, replay, observe, linked) {
       if (!blocked) feedback.textContent = 'Paper week settled. Portfolio Lab has the updated balance.';
       return;
     }
-    if (!replay.step()) {
+    let advanced = false;
+    for (let offset = 0; offset < count && replay.step(); offset++) advanced = true;
+    if (!advanced) {
       pause();
       next.disabled = true;
+      day.disabled = true;
       play.disabled = true;
       feedback.textContent = 'End of this dataset.';
       paint();
       return;
     }
     if (linked) {
-      if (replay.snapshot().revealed === 30) pause();
+      if (lastWeekBar(replay.snapshot())) pause();
       await persist();
     }
     paint();
-    if (!blocked) feedback.textContent = info.textContent + ' · Close ' + formatPrice(replay.snapshot().latest.close);
+    if (!blocked) feedback.textContent = '';
   }
   next.onclick = () => { pause(); advance(); };
+  day.onclick = () => { pause(); advance(24); };
   play.onclick = () => {
     if (timer) pause();
-    else { timer = setInterval(advance, 550); play.textContent = 'Pause replay'; }
+    else { timer = setInterval(() => advance(), 420); play.textContent = 'Pause replay'; }
   };
   display.onchange = async () => {
     if (saving || blocked) { display.value = replay.snapshot().minutes; return; }
@@ -325,16 +414,18 @@ function replayPanel(host, replay, observe, linked) {
     controls, info);
   if (linked) panel.append(element('small', 'Portfolio Lab linked · Cash and trades save to this local paper account. Open positions settle at the final revealed close.'));
   if (week) panel.append(goal);
-  panel.append(orderTools, plot, stats, feedback, paper.card);
+  const dashboard = element('div', undefined, 'studio-dashboard');
+  const chartArea = element('section', undefined, 'studio-chart-area');
+  chartArea.append(orderTools, plot, stats, details, feedback);
+  dashboard.append(chartArea, paper.card);
+  panel.append(dashboard);
   paint();
   host.replaceChildren(panel);
 }
 
 export function renderStudio(workspace, preferredMarket, owner, observe, portfolio) {
   const weekCard = element('section', undefined, 'panel stack studio-week');
-  weekCard.append(element('h2', 'Practice a trading week'),
-    element('p', 'Five simulated days. Practice two or three completed trades when your setup appears. You can finish the week with fewer if the setup never comes.'),
-    element('small', 'Synthetic data · Training only. Hourly candles, six per weekday.'));
+  weekCard.append(element('small', 'Synthetic data · Training only · Seven days, 24 hourly candles per day'));
   const weekMarket = options(Object.entries(labelMarket));
   weekMarket.value = preferredMarket;
   const start = element('button', 'Start practice week', 'primary');
@@ -371,7 +462,7 @@ export function renderStudio(workspace, preferredMarket, owner, observe, portfol
     linkedButton.disabled = true;
     try {
       const active = account.run && !account.run.complete;
-      const run = active ? account.run : { id: crypto.randomUUID(), funding: Math.max(0, accountTotals(account).cash), complete: false };
+      const run = active ? account.run : { id: crypto.randomUUID(), funding: Math.max(0, accountTotals(account).cash), complete: false, scenarioVersion: CURRENT_WEEK_VERSION };
       if (!active && run.funding <= 0) throw new Error('Add paper funds in Portfolio Lab before starting a new week.');
       const replay = await portfolioReplay(market, run);
       if (!weekCard.isConnected) return;
@@ -392,13 +483,16 @@ export function renderStudio(workspace, preferredMarket, owner, observe, portfol
     start.disabled = restore.disabled = true;
     try {
       if (file?.size > 2 * 1024 * 1024) throw new Error('Choose a valid Studio checkpoint file.');
-      const { dataset, text } = practiceWeek(weekMarket.value);
-      const id = await datasetId(text, dataset.metadata);
       const checkpoint = file ? JSON.parse(await file.text()) : undefined;
+      const version = checkpoint ? checkpoint.scenarioVersion ?? 1 : CURRENT_WEEK_VERSION;
+      const { dataset, text } = practiceWeek(weekMarket.value, version);
+      const id = await datasetId(text, dataset.metadata);
       const replay = createReplay(dataset, id, checkpoint);
+      if (!checkpoint) revealPracticeOpening(replay, version);
       if (!weekCard.isConnected) return;
       current = { owner, replay };
       replayPanel(output, replay, observe);
+      restoration.open = false;
       weekStatus.textContent = file ? 'Practice week restored.' : 'Practice week ready.';
       output.querySelector('h2')?.scrollIntoView({ block: 'nearest' });
     } catch (error) {
@@ -414,8 +508,8 @@ export function renderStudio(workspace, preferredMarket, owner, observe, portfol
     else weekStatus.textContent = 'Choose the checkpoint for this practice market.';
   };
 
-  const intro = element('section', undefined, 'panel stack');
-  intro.append(element('h2', 'Load historical candles'),
+  const intro = element('details', undefined, 'panel stack studio-csv');
+  intro.append(element('summary', 'Import historical CSV'),
     element('p', 'Replay a local OHLCV file one candle at a time. The chart and SMA use revealed data. Paper orders fill against the replay clock and produce separate Studio results.'),
     element('small', 'CSV columns: timestamp,open,high,low,close,volume. Use UTC ISO timestamps, a fixed interval, and ascending rows.'));
   const form = element('form', undefined, 'stack');
@@ -453,7 +547,7 @@ export function renderStudio(workspace, preferredMarket, owner, observe, portfol
   const output = element('div', undefined, 'studio-output');
   if (current?.owner === owner && !current.linked) replayPanel(output, current.replay, observe);
   intro.append(form);
-  workspace.append(weekCard, intro, output);
+  workspace.append(weekCard, output, intro);
   form.onsubmit = async event => {
     event.preventDefault();
     load.disabled = true;
@@ -471,6 +565,7 @@ export function renderStudio(workspace, preferredMarket, owner, observe, portfol
       current = { owner, replay };
       replayPanel(output, replay, observe);
       status.textContent = restored ? 'Checkpoint restored.' : 'Replay loaded.';
+      output.querySelector('h2')?.scrollIntoView({ block: 'nearest' });
     } catch (error) {
       status.textContent = error.message;
     } finally {
