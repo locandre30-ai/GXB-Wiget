@@ -3,9 +3,9 @@ import { savePortfolioWeek } from './portfolio.mjs';
 import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs';
 import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
-import { setupNavigation } from './navigation.mjs?v=mobile-1';
+import { setupNavigation } from './navigation.mjs?v=mobile-2';
 import { marketBrief, watchlist } from './market-watch.mjs';
-import { clearStudio, renderStudio } from './studio.mjs?v=mobile-1';
+import { clearStudio, renderStudio } from './studio.mjs?v=mobile-2';
 import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs';
 import { LocalIdentity } from './identity.mjs';
 
@@ -394,6 +394,19 @@ function tickerPreview(symbols) {
   return symbols.slice(0, 4).map(symbol => symbol.split(':')[1]).join('  ·  ') || 'Add watchlist symbols';
 }
 
+const phoneLayout = matchMedia('(max-width: 600px)');
+
+function mobileDisclosure(title, content, className) {
+  const disclosure = node('details', undefined, 'dashboard-disclosure ' + className);
+  disclosure.open = !phoneLayout.matches;
+  disclosure.append(node('summary', title), content);
+  return disclosure;
+}
+
+phoneLayout.addEventListener('change', event => {
+  for (const disclosure of document.querySelectorAll('.dashboard-disclosure')) disclosure.open = !event.matches;
+});
+
 function renderHome() {
   const profile = activeProfile();
   const state = profile.state;
@@ -442,20 +455,24 @@ function renderHome() {
   next[0].classList.add('primary');
   actions.append(...next);
   if (state.draft) actions.append(node('small', state.draft.session.results.length + ' of 10 decisions saved · ' + state.draft.focus));
-  actions.append(link('Open Market Studio', '#studio'), link('Review recorded performance', '#performance'), link('Open Portfolio Lab', '#portfolio'));
+  for (const [label, href] of [['Open Market Studio', '#studio'], ['Review recorded performance', '#performance'], ['Open Portfolio Lab', '#portfolio']]) {
+    actions.append(link(label, href, 'button mobile-extra'));
+  }
   const columns = node('div', undefined, 'two workspace-columns');
   columns.append(actions, recent(state));
   const training = node('div', undefined, 'dashboard-main');
-  training.append(heading, metrics, markets, columns);
+  markets.classList.add('dashboard-markets');
+  training.append(heading, mobileDisclosure('Training metrics', metrics, 'dashboard-metrics'), markets, columns);
   const rail = node('aside', undefined, 'dashboard-rail');
   const title = marketNames[profile.market];
-  rail.append(watchlist(profile, title, async (market, symbols) => {
+  const watch = watchlist(profile, title, async (market, symbols) => {
     if (!await updateProfile(selected => { selected.watch[market] = symbols; })) return false;
     const tickers = marketGrid.querySelector('[data-market="' + market + '"]');
     tickers.textContent = tickerPreview(symbols);
     return true;
-  }),
-    marketBrief(profile, title, () => activeProfile().watch[profile.market]));
+  });
+  rail.append(mobileDisclosure('Market Watchlist', watch, 'dashboard-watch'),
+    mobileDisclosure('Market Assistant', marketBrief(profile, title, () => activeProfile().watch[profile.market]), 'dashboard-assistant'));
   const dashboard = node('div', undefined, 'dashboard');
   dashboard.append(training, rail);
   workspace.append(dashboard);
@@ -667,6 +684,15 @@ function render(focus = false) {
   if (page === 'performance') renderPerformance();
   status();
   if (focus) workspace.focus();
+  if (phoneLayout.matches && !navigation.hidden) {
+    const strip = navigation.querySelector('.nav-items');
+    const currentTab = strip.querySelector('[aria-current="page"]');
+    if (currentTab && currentTab.offsetLeft + currentTab.offsetWidth > strip.offsetLeft + strip.scrollLeft + strip.clientWidth) {
+      strip.scrollLeft = currentTab.offsetLeft - strip.offsetLeft;
+    } else if (currentTab && currentTab.offsetLeft < strip.offsetLeft + strip.scrollLeft) {
+      strip.scrollLeft = currentTab.offsetLeft - strip.offsetLeft;
+    }
+  }
 }
 
 document.querySelector('.skip').addEventListener('click', event => {

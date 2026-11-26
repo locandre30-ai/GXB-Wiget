@@ -54,4 +54,4 @@ If storage reports a problem, read the message and reopen the page after resolvi
 
 Avoid alternating between the baseline and Release 1 to record training. The baseline cannot read Release 1 records, and switching back to Release 1 will continue to use its saved snapshot.
 
-On phones, the four primary destinations stay visible. Open **Menu** for Portfolio Lab, Performance, Settings, profile switching and navigation ordering. Tap a Market Studio candle to inspect its price and time. The public GitHub Pages practice link opens the current shell. Use practice.html?legacy=1 for the public standalone compatibility view.
+On phones, swipe the primary navigation row to reach its four destinations. Open **Menu** in the header for Portfolio Lab, Performance, Settings, profile switching and navigation ordering. Tap a Market Studio candle to inspect its price and time. The public GitHub Pages practice link opens the current shell. Use practice.html?legacy=1 for the public standalone compatibility view.

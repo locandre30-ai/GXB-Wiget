@@ -35,7 +35,18 @@ export function setupNavigation(nav, getOrder, save) {
       menu.focus();
     }
   });
-  nav.append(menu, secondary);
+  document.querySelector('.top').append(menu);
+  nav.append(secondary);
+  document.addEventListener('pointerdown', event => {
+    if (!menu.contains(event.target) && !secondary.contains(event.target)) setMenu(false);
+  });
+  menu.addEventListener('keydown', event => {
+    if (event.key === 'Escape') setMenu(false);
+    if (event.key === 'ArrowDown' && menu.getAttribute('aria-expanded') === 'true') {
+      event.preventDefault();
+      secondary.querySelector('a')?.focus();
+    }
+  });
   const announcement = document.createElement('span');
   announcement.className = 'sr-only';
   announcement.setAttribute('role', 'status');
@@ -50,6 +61,11 @@ export function setupNavigation(nav, getOrder, save) {
     customize.setAttribute('aria-expanded', String(editing));
     list.classList.toggle('nav-editing', editing);
     nav.classList.toggle('nav-editing-mode', editing);
+    if (matchMedia('(max-width: 600px)').matches) {
+      setMenu(false);
+      if (editing) list.querySelector('.nav-step:not([disabled])')?.focus();
+      else menu.focus();
+    }
   };
   secondary.append(customize);
 
@@ -142,6 +158,8 @@ export function setupNavigation(nav, getOrder, save) {
     rows.set(id, row);
   }
   return () => {
+    menu.hidden = nav.hidden;
+    if (nav.hidden) setMenu(false);
     const next = cleanOrder(getOrder());
     if (!drag && (next.join() !== order.join() || !list.children.length)) {
       order = next;

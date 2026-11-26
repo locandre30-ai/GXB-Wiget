@@ -20,8 +20,19 @@ async function run() {
     await page.getByRole('button', { name: 'Menu', exact: true }).tap();
     await page.getByRole('link', { name: 'Settings', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+    assert.equal(await page.getByRole('button', { name: 'Menu', exact: true }).evaluate(menu => menu.closest('header') !== null), true);
+    assert.equal(await page.locator('.nav-items').evaluate(strip => {
+      const rows = [...strip.children];
+      return rows.every(row => row.offsetTop === rows[0].offsetTop) && strip.scrollWidth > strip.clientWidth;
+    }), true);
+    await page.locator('.dashboard-watch summary').tap();
+    await page.getByRole('heading', { name: 'Market watchlist' }).waitFor({ state: 'hidden' });
+    await page.getByRole('button', { name: 'Load TradingView quotes' }).waitFor();
+    await page.locator('.dashboard-watch summary').tap();
+    assert.equal(await page.getByRole('button', { name: 'Load TradingView quotes' }).isVisible(), false);
+    assert.equal(await page.locator('.dashboard-metrics').getAttribute('open'), null);
     if (process.env.ARENA_IPHONE_SCREENSHOT) await page.screenshot({ path: process.env.ARENA_IPHONE_SCREENSHOT, fullPage: true });
-    await page.getByRole('link', { name: 'Open Market Studio', exact: true }).tap();
+    await page.getByRole('link', { name: 'Market Studio', exact: true }).tap();
     await page.getByRole('button', { name: 'Start practice week' }).tap();
     const chart = page.getByRole('img', { name: /Candlestick chart/ });
     await page.locator('.studio-plot').scrollIntoViewIfNeeded();
