@@ -53,3 +53,5 @@ If storage reports a problem, read the message and reopen the page after resolvi
 3. Start the baseline launcher and open `/practice.html` on the same origin. The baseline reads the original legacy keys as they stood before Arena. Progress made in Release 1 remains in its versioned snapshot and can be accessed again by switching back to `release/gxb-arena-v2-r1`.
 
 Avoid alternating between the baseline and Release 1 to record training. The baseline cannot read Release 1 records, and switching back to Release 1 will continue to use its saved snapshot.
+
+On phones, the four primary destinations stay visible. Open **Menu** for Portfolio Lab, Performance, Settings, profile switching and navigation ordering. Tap a Market Studio candle to inspect its price and time. The public GitHub Pages practice link opens the current shell. Use practice.html?legacy=1 for the public standalone compatibility view.

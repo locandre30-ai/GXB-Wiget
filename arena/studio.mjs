@@ -41,22 +41,24 @@ function formatPrice(value) {
   return value.toLocaleString(undefined, { maximumFractionDigits: 8 });
 }
 
-function chart({ bars, range, paper }, pick, inspect) {
-  const plot = svg('svg', { viewBox: '0 0 820 300', role: 'img', 'aria-label': 'Candlestick chart using revealed candles. Use left and right arrow keys to inspect.', tabindex: 0 });
+function chart({ bars, range, paper }, pick, inspect, viewWidth) {
+  const right = viewWidth - 69;
+  const left = 12;
+  const plot = svg('svg', { viewBox: '0 0 ' + viewWidth + ' 300', role: 'img', 'aria-label': 'Candlestick chart using revealed candles. Use left and right arrow keys to inspect.', tabindex: 0 });
   const spread = range.high - range.low || range.high * .01;
   const y = value => 20 + (range.high - value + spread * .05) / (spread * 1.1) * 260;
-  const bucket = 730 / bars.length;
+  const bucket = (right - left) / bars.length;
   const width = Math.min(22, bucket * .65);
   for (let i = 0; i <= 4; i++) {
     const value = range.high - spread * i / 4;
     const gridY = y(value);
-    plot.append(svg('line', { x1: 12, x2: 742, y1: gridY, y2: gridY, class: 'studio-grid' }));
-    const tick = svg('text', { x: 748, y: gridY + 4, class: 'studio-tick' });
+    plot.append(svg('line', { x1: left, x2: right, y1: gridY, y2: gridY, class: 'studio-grid' }));
+    const tick = svg('text', { x: right + 5, y: gridY + 4, class: 'studio-tick' });
     tick.textContent = formatPrice(value);
     if (range.high !== range.low || i === 0) plot.append(tick);
   }
   for (const [index, bar] of bars.entries()) {
-    const x = 12 + (index + .5) * bucket;
+    const x = left + (index + .5) * bucket;
     const color = bar.close >= bar.open ? 'studio-up' : 'studio-down';
     const candle = svg('g', { class: color + (bar.partial ? ' studio-partial' : '') });
     candle.append(svg('line', { x1: x, x2: x, y1: y(bar.high), y2: y(bar.low) }),
@@ -64,10 +66,10 @@ function chart({ bars, range, paper }, pick, inspect) {
         height: Math.max(1, Math.abs(y(bar.open) - y(bar.close))) }));
     plot.append(candle);
   }
-  const ticks = Math.min(5, bars.length);
+  const ticks = Math.min(viewWidth < 500 ? 3 : 5, bars.length);
   for (let i = 0; i < ticks; i++) {
     const index = ticks === 1 ? 0 : Math.round(i * (bars.length - 1) / (ticks - 1));
-    const tick = svg('text', { x: Math.max(38, Math.min(710, 12 + (index + .5) * bucket)), y: 294,
+    const tick = svg('text', { x: Math.max(38, Math.min(right - 38, left + (index + .5) * bucket)), y: 294,
       class: 'studio-tick', 'text-anchor': 'middle' });
     const time = new Date(bars[index].time).toISOString();
     tick.textContent = time.slice(5, 10) + ' ' + time.slice(11, 16);
@@ -79,15 +81,15 @@ function chart({ bars, range, paper }, pick, inspect) {
   ]) {
     if (!Number.isFinite(price) || y(price) < 20 || y(price) > 280) continue;
     const axis = y(price);
-    plot.append(svg('line', { x1: 12, x2: 742, y1: axis, y2: axis, stroke: color, 'stroke-dasharray': '5 4' }));
+    plot.append(svg('line', { x1: left, x2: right, y1: axis, y2: axis, stroke: color, 'stroke-dasharray': '5 4' }));
     const text = svg('text', { x: 18, y: axis - 4, fill: color, class: 'studio-order-label' });
     text.textContent = label + ' ' + formatPrice(price);
     plot.append(text);
   }
   const crosshair = svg('g', { visibility: 'hidden', class: 'studio-crosshair', 'aria-hidden': 'true' });
-  const horizontal = svg('line', { x1: 12, x2: 742 });
+  const horizontal = svg('line', { x1: left, x2: right });
   const vertical = svg('line', { y1: 20, y2: 280 });
-  const axisLabel = svg('text', { class: 'studio-cross-label', x: 746 });
+  const axisLabel = svg('text', { class: 'studio-cross-label', x: right + 5 });
   const timeLabel = svg('text', { class: 'studio-cross-label', y: 291, 'text-anchor': 'middle' });
   crosshair.append(horizontal, vertical, axisLabel, timeLabel);
   plot.append(crosshair);
@@ -96,7 +98,7 @@ function chart({ bars, range, paper }, pick, inspect) {
     inspected = index;
     const bar = bars[index];
     const price = range.high + spread * .05 - (pointerY - 20) / 260 * spread * 1.1;
-    const px = 12 + (index + .5) * bucket;
+    const px = left + (index + .5) * bucket;
     crosshair.setAttribute('visibility', 'visible');
     horizontal.setAttribute('y1', pointerY);
     horizontal.setAttribute('y2', pointerY);
@@ -104,7 +106,7 @@ function chart({ bars, range, paper }, pick, inspect) {
     vertical.setAttribute('x2', px);
     axisLabel.setAttribute('y', pointerY + 4);
     axisLabel.textContent = price.toLocaleString(undefined, { maximumFractionDigits: price >= 1 ? 2 : 7 });
-    timeLabel.setAttribute('x', Math.max(54, Math.min(696, px)));
+    timeLabel.setAttribute('x', Math.max(54, Math.min(right - 40, px)));
     timeLabel.textContent = new Date(bar.time).toISOString().slice(5, 16).replace('T', ' ');
     inspect(bar, price);
     return price;
@@ -113,8 +115,8 @@ function chart({ bars, range, paper }, pick, inspect) {
     const matrix = plot.getScreenCTM();
     if (!matrix) return null;
     const coordinates = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-    if (coordinates.x < 12 || coordinates.x > 742 || coordinates.y < 20 || coordinates.y > 280) return null;
-    return { index: Math.min(bars.length - 1, Math.floor((coordinates.x - 12) / bucket)), y: coordinates.y };
+    if (coordinates.x < left || coordinates.x > right || coordinates.y < 20 || coordinates.y > 280) return null;
+    return { index: Math.min(bars.length - 1, Math.floor((coordinates.x - left) / bucket)), y: coordinates.y };
   }
   function clear() { crosshair.setAttribute('visibility', 'hidden'); inspect(); }
   plot.addEventListener('pointermove', event => {
@@ -122,7 +124,7 @@ function chart({ bars, range, paper }, pick, inspect) {
     if (coordinates) at(coordinates.index, coordinates.y);
     else clear();
   });
-  plot.addEventListener('pointerleave', clear);
+  plot.addEventListener('pointerleave', event => { if (event.pointerType !== 'touch') clear(); });
   plot.addEventListener('blur', clear);
   plot.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Escape'].includes(event.key)) return;
@@ -131,13 +133,13 @@ function chart({ bars, range, paper }, pick, inspect) {
     const index = Math.max(0, Math.min(bars.length - 1, inspected + (event.key === 'ArrowLeft' ? -1 : 1)));
     at(index, y(bars[index].close));
   });
-  if (pick) {
-    plot.classList.add('studio-picking');
-    plot.addEventListener('click', event => {
-      const coordinates = point(event);
-      if (coordinates) pick(Number(at(coordinates.index, coordinates.y).toFixed(8)));
-    });
-  }
+  if (pick) plot.classList.add('studio-picking');
+  plot.addEventListener('click', event => {
+    const coordinates = point(event);
+    if (!coordinates) return;
+    const price = at(coordinates.index, coordinates.y);
+    if (pick) pick(Number(price.toFixed(8)));
+  });
   return plot;
 }
 
@@ -278,6 +280,7 @@ function replayPanel(host, replay, observe, linked) {
   if (week) controls.append(day);
   if (!linked) controls.append(checkpoint);
   const plot = element('div', undefined, 'studio-plot');
+  let chartWidth = 820;
   const orderTools = element('div', undefined, 'actions studio-order-tools');
   const goal = element('p', undefined, 'studio-week-goal');
   const pickStatus = element('small');
@@ -366,7 +369,7 @@ function replayPanel(host, replay, observe, linked) {
       picking = undefined;
       pickStatus.textContent = (key === 'stop' ? 'Stop' : 'Target') + ' set to ' + formatPrice(price) + '.';
       paint();
-    } : null, inspect));
+    } : null, inspect, chartWidth));
     paper.paint(state.paper, next.disabled || Boolean(linked && lastWeekBar(state)));
   };
   async function advance(count = 1) {
@@ -419,8 +422,16 @@ function replayPanel(host, replay, observe, linked) {
   chartArea.append(orderTools, plot, stats, details, feedback);
   dashboard.append(chartArea, paper.card);
   panel.append(dashboard);
-  paint();
   host.replaceChildren(panel);
+  const size = () => Math.max(240, Math.min(820, Math.floor(plot.clientWidth)));
+  chartWidth = size();
+  paint();
+  const observer = new ResizeObserver(() => {
+    if (!plot.isConnected) { observer.disconnect(); return; }
+    const width = size();
+    if (width !== chartWidth) { chartWidth = width; paint(); }
+  });
+  observer.observe(plot);
 }
 
 export function renderStudio(workspace, preferredMarket, owner, observe, portfolio) {

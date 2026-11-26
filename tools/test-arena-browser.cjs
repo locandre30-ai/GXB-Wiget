@@ -180,6 +180,7 @@ async function run() {
       await page.getByRole('link', { name: 'Free Practice' }).click();
       await drill.locator('#answers button').first().waitFor();
       assert.equal(await drill.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
+      if (width <= 600) await page.getByRole('button', { name: 'Menu', exact: true }).click();
       await page.getByRole('link', { name: 'Switch profile' }).click();
     }
 

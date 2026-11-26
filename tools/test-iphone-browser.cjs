@@ -1,0 +1,58 @@
+const assert = require('node:assert/strict');
+const { chromium, devices } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+
+async function run() {
+  const browser = await chromium.launch(process.env.ARENA_BROWSER ? { executablePath: process.env.ARENA_BROWSER } : {});
+  const base = process.env.ARENA_URL || 'http://127.0.0.1:8766/arena.html';
+  try {
+    const context = await browser.newContext({ ...devices['iPhone 13'], defaultBrowserType: undefined, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    page.setDefaultTimeout(10000);
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(base);
+    await page.getByLabel('Local profile name').fill('iPhone Tester');
+    await page.getByRole('button', { name: 'Create profile and enter' }).tap();
+    const primary = page.locator('.nav-items a');
+    assert.equal(await primary.count(), 4);
+    assert.ok(await primary.evaluateAll(links => links.every(link => link.getBoundingClientRect().height >= 44)));
+    assert.equal(await page.getByRole('link', { name: 'Settings', exact: true }).isVisible(), false);
+    await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+    await page.getByRole('link', { name: 'Settings', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+    if (process.env.ARENA_IPHONE_SCREENSHOT) await page.screenshot({ path: process.env.ARENA_IPHONE_SCREENSHOT, fullPage: true });
+    await page.getByRole('link', { name: 'Open Market Studio', exact: true }).tap();
+    await page.getByRole('button', { name: 'Start practice week' }).tap();
+    const chart = page.getByRole('img', { name: /Candlestick chart/ });
+    await page.locator('.studio-plot').scrollIntoViewIfNeeded();
+    const bounds = await chart.boundingBox();
+    const viewport = await page.evaluate(() => innerWidth);
+    assert.ok(bounds.width < viewport);
+    assert.equal(await page.locator('.studio-plot').evaluate(plot => plot.scrollWidth <= plot.clientWidth), true);
+    await page.touchscreen.tap(bounds.x + bounds.width * .45, bounds.y + bounds.height * .42);
+    await page.locator('.studio-crosshair[visibility="visible"]').waitFor();
+    await page.locator('.studio-inspection').filter({ hasText: /UTC · Price/ }).waitFor();
+    await page.getByRole('button', { name: 'Buy / Long', exact: true }).tap();
+    assert.ok(Number(await page.getByLabel('Target price').inputValue()) > Number(await page.getByLabel('Stop price').inputValue()));
+    assert.equal(await page.getByLabel('Units', { exact: true }).evaluate(input => getComputedStyle(input).fontSize), '16px');
+    const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+    for (const width of [390, 375, 320]) {
+      await page.setViewportSize({ width, height: 800 });
+      assert.equal(await fits(), true);
+      assert.equal(await page.locator('.studio-plot').evaluate(plot => plot.scrollWidth <= plot.clientWidth), true);
+    }
+    await page.getByRole('link', { name: 'Academy', exact: true }).tap();
+    await page.getByRole('heading', { name: 'Market Journeys' }).waitFor();
+    assert.equal(await fits(), true);
+    await page.getByRole('link', { name: /^Gold/ }).tap();
+    const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
+    await frame.getByRole('heading', { name: /Gold journey/ }).waitFor();
+    assert.equal(await frame.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
+    await page.getByRole('link', { name: 'Free Practice', exact: true }).tap();
+    await page.frameLocator('iframe[title="Free Practice training"]').getByRole('heading', { name: 'ICC Practice Arena' }).waitFor();
+    assert.equal(await fits(), true);
+    assert.deepEqual(errors, []);
+    console.log('PASS: iPhone-size touch crosshair, accessible bracket ticket, no horizontal chart scroll, Academy and ICC at 320–390px.');
+  } finally { await browser.close(); }
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -707,6 +707,14 @@
   </div>
 
   <script>
+  // Public bookmarks and older site buttons enter the current Arena shell.
+  // Embeds, the local compatibility route and explicit legacy access keep this page.
+  if (window.parent === window &&
+      location.hostname === "locandre30-ai.github.io" &&
+      location.pathname.toLowerCase() === "/gxb-wiget/practice.html" &&
+      new URLSearchParams(location.search).get("legacy") !== "1") {
+    location.replace(new URL("./arena.html", location.href));
+  } else
   (async () => {
     const { connectTraining, cleanState } = await import("./arena/training.mjs");
     const { CHECK_INS, recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");

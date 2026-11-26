@@ -3,9 +3,9 @@ import { savePortfolioWeek } from './portfolio.mjs';
 import { academyDirectory, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs';
 import { recordActivity } from './activity.mjs';
 import { recordPaperDecision } from './learning.mjs';
-import { setupNavigation } from './navigation.mjs';
+import { setupNavigation } from './navigation.mjs?v=mobile-1';
 import { marketBrief, watchlist } from './market-watch.mjs';
-import { clearStudio, renderStudio } from './studio.mjs';
+import { clearStudio, renderStudio } from './studio.mjs?v=mobile-1';
 import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs';
 import { LocalIdentity } from './identity.mjs';
 

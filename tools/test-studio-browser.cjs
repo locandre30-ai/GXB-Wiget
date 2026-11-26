@@ -87,6 +87,7 @@ async function run() {
       const book = JSON.parse(localStorage.getItem('gxb_arena_v2_r1'));
       return book.profiles[book.active].state.learning.paper.long === 2;
     });
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
     await page.getByRole('link', { name: 'Performance', exact: true }).click();
     await page.getByText('0 with saved details', { exact: true }).waitFor();
     await enterStudio();
@@ -95,7 +96,7 @@ async function run() {
     await page.getByText(/Synthetic week · Day 1 of 7/).waitFor();
     assert.equal(await page.getByLabel('Candle CSV').isVisible(), false);
     await page.setViewportSize({ width: 1360, height: 960 });
-    await chart.scrollIntoViewIfNeeded();
+    await page.locator('.studio-plot').scrollIntoViewIfNeeded();
     await chart.hover({ position: { x: 100, y: 95 } });
     await page.locator('.studio-crosshair[visibility="visible"]').waitFor();
     await page.locator('.studio-inspection').filter({ hasText: /UTC · Price/ }).waitFor();
@@ -103,13 +104,13 @@ async function run() {
     assert.ok(Number(await page.getByLabel('Target price').inputValue()) > Number(await page.getByLabel('Stop price').inputValue()));
     await page.getByRole('button', { name: 'Pick stop on chart' }).click();
     await page.setViewportSize({ width: 1360, height: 960 });
-    await chart.scrollIntoViewIfNeeded();
+    await page.locator('.studio-plot').scrollIntoViewIfNeeded();
     const bounds = await chart.boundingBox();
     const mid = bounds.x + bounds.width * .35;
     await page.mouse.click(mid, bounds.y + bounds.height * .65);
     assert.ok(Number(await page.getByLabel('Stop price').inputValue()) > 0);
     await page.getByRole('button', { name: 'Pick target on chart' }).click();
-    await chart.scrollIntoViewIfNeeded();
+    await page.locator('.studio-plot').scrollIntoViewIfNeeded();
     const targetBounds = await chart.boundingBox();
     await page.mouse.click(mid, targetBounds.y + targetBounds.height * .25);
     assert.ok(Number(await page.getByLabel('Target price').inputValue()) > Number(await page.getByLabel('Stop price').inputValue()));
@@ -129,7 +130,7 @@ async function run() {
     await page.getByText(/Synthetic week · Day 2 of 7/).waitFor();
     if (process.env.STUDIO_DASHBOARD_SCREENSHOT) {
       await page.getByRole('button', { name: 'Buy / Long', exact: true }).click();
-      await chart.scrollIntoViewIfNeeded();
+      await page.locator('.studio-plot').scrollIntoViewIfNeeded();
       await chart.hover({ position: { x: 260, y: 120 } });
       await page.screenshot({ path: process.env.STUDIO_DASHBOARD_SCREENSHOT, fullPage: true, animations: 'disabled' });
     }

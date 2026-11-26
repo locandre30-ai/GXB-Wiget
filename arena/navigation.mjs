@@ -9,6 +9,33 @@ export function setupNavigation(nav, getOrder, save) {
   const list = document.createElement('div');
   list.className = 'nav-items';
   nav.prepend(list);
+  const secondary = document.createElement('div');
+  secondary.className = 'nav-secondary';
+  secondary.id = 'arena-more-links';
+  for (const anchor of nav.querySelectorAll(':scope > a')) {
+    if (!anchors.includes(anchor)) secondary.append(anchor);
+  }
+  const menu = document.createElement('button');
+  menu.type = 'button';
+  menu.className = 'nav-menu';
+  menu.textContent = 'Menu';
+  menu.setAttribute('aria-controls', secondary.id);
+  const setMenu = open => {
+    menu.setAttribute('aria-expanded', String(open));
+    secondary.classList.toggle('nav-secondary-open', open);
+  };
+  setMenu(false);
+  menu.onclick = () => setMenu(menu.getAttribute('aria-expanded') !== 'true');
+  secondary.addEventListener('click', event => {
+    if (event.target.closest('a')) setMenu(false);
+  });
+  nav.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && menu.getAttribute('aria-expanded') === 'true') {
+      setMenu(false);
+      menu.focus();
+    }
+  });
+  nav.append(menu, secondary);
   const announcement = document.createElement('span');
   announcement.className = 'sr-only';
   announcement.setAttribute('role', 'status');
@@ -22,8 +49,9 @@ export function setupNavigation(nav, getOrder, save) {
     editing = !editing;
     customize.setAttribute('aria-expanded', String(editing));
     list.classList.toggle('nav-editing', editing);
+    nav.classList.toggle('nav-editing-mode', editing);
   };
-  nav.append(customize);
+  secondary.append(customize);
 
   function place() {
     for (const id of order) list.append(rows.get(id));
