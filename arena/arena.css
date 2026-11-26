@@ -28,18 +28,11 @@ button:disabled { opacity: .65; cursor: default; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 12px clamp(14px, 3vw, 38px); border-bottom: 1px solid var(--border); background: var(--surface); }
 .brand { display: inline-flex; align-items: center; gap: clamp(8px, 1.6vw, 14px); min-height: 44px; text-decoration: none; }
 .brand-mark { display: block; width: clamp(46px, 6vw, 66px); height: auto; flex: none; }
-.brand-wordmark { display: grid; gap: 5px; line-height: 1; white-space: nowrap; }
-.brand-name {
-  width: max-content; padding-inline: .08em .14em;
-  color: #e1e7f2; font: 900 clamp(1.55rem, 3vw, 2.1rem)/.92 "Arial Black", "Segoe UI", system-ui, sans-serif;
-  letter-spacing: .08em; transform: skewX(-11deg);
+.brand-wordmark {
+  display: flex; align-items: center; gap: .55em; color: var(--ink); white-space: nowrap;
+  font-size: clamp(.82rem, 1.6vw, 1.1rem); font-weight: 750; letter-spacing: .14em; text-transform: uppercase;
 }
-.brand-name > span { color: var(--gold); }
-.brand-subtitle {
-  display: flex; align-items: center; gap: .55em; color: var(--ink);
-  font-size: clamp(.63rem, 1.25vw, .76rem); font-weight: 750; letter-spacing: .18em; text-transform: uppercase;
-}
-.brand-subtitle::before { content: ""; width: .85em; height: 2px; background: var(--gold); transform: skewX(-30deg); }
+.brand-wordmark::before { content: ""; width: .85em; height: 2px; background: var(--gold); transform: skewX(-30deg); }
 .release, small, p, label { color: var(--muted); }
 .layout { display: grid; grid-template-columns: 212px minmax(0, 1fr); max-width: 1560px; margin: auto; }
 .layout:has(nav[hidden]) { grid-template-columns: minmax(0, 1fr); }
