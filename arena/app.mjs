@@ -1,13 +1,13 @@
 import { storageLock } from './storage-lock.mjs';
 import { renderPortfolioLab } from './portfolio-lab.mjs';
 import { savePortfolioWeek } from './portfolio.mjs';
-import { academyDirectory, ambientReflection, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs?v=quote-1';
+import { academyDirectory, ambientReflection, renderStudySection, STUDY_SECTIONS } from './academy-library.mjs?v=swings-1';
 import { recordActivity } from './activity.mjs';
-import { recordPaperDecision } from './learning.mjs';
+import { GUIDE_NAME, academyDay, academyGrowth, marketObservation, recordPaperDecision, reinforcementDrills } from './learning.mjs?v=daily-10';
 import { setupNavigation } from './navigation.mjs?v=save-1';
 import { marketBrief, watchlist } from './market-watch.mjs';
 import { clearStudio, renderStudio } from './studio.mjs?v=scale-1';
-import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs?v=save-1';
+import { exportBook, importBook, newProfile, openStore, PALETTES } from './store.mjs?v=daily-10';
 import { LocalIdentity } from './identity.mjs?v=save-1';
 
 const workspace = document.querySelector('#workspace');
@@ -286,6 +286,7 @@ window.gxbTraining = {
       view,
       market: element.dataset.market,
       lesson: element.dataset.lesson,
+      focus: element.dataset.focus,
       book: { ...snapshot, profiles: { [id]: snapshot.profiles[id] } },
       save(updated) {
         if (guestAtConnect) {
@@ -305,13 +306,14 @@ window.gxbTraining = {
   }
 };
 
-function renderTraining(view, market, lesson) {
+function renderTraining(view, market, lesson, focus) {
   frame = node('iframe', undefined, 'training');
   frame.dataset.view = view;
   if (market) frame.dataset.market = market;
   if (/^[0-6]$/.test(lesson ?? "")) frame.dataset.lesson = lesson;
+  if (focus) frame.dataset.focus = focus;
   frame.title = view === 'academy' ? 'Academy lesson workspace' : 'Free Practice training';
-  frame.src = './practice.html?v=chart-3&view=' + view;
+  frame.src = './practice.html?v=practice-info-1&view=' + view;
   workspace.append(frame);
 }
 
@@ -322,6 +324,20 @@ const marketNames = { gold: 'Gold', bitcoin: 'Bitcoin', stocks: 'Stocks and ETFs
 function activeProfile() {
   const book = guest ? guestBook : store.book;
   return book.profiles[book.active];
+}
+
+function workspaceGuide(text, destination, label) {
+  const panel = node('section', undefined, 'panel workspace-guide');
+  panel.setAttribute('aria-label', GUIDE_NAME);
+  const message = node('p', text);
+  message.setAttribute('role', 'status');
+  const identity = node('div', undefined, 'workspace-guide-identity');
+  const avatar = node('span', undefined, 'gxb-guide-avatar');
+  avatar.setAttribute('aria-hidden', 'true');
+  identity.append(avatar, node('strong', GUIDE_NAME));
+  panel.append(identity, message);
+  if (destination) panel.append(link(label, destination, 'guide-link'));
+  return { panel, message };
 }
 
 async function updateProfile(update) {
@@ -457,6 +473,10 @@ function renderHome() {
   nextIcon.setAttribute('aria-hidden', 'true');
   nextTitle.append(nextIcon, 'Next exercises');
   actions.append(nextTitle);
+  const daily = state.learning.daily.find(report => report.day === academyDay());
+  if (daily) actions.append(workspaceGuide(
+    'You finished ' + lessons[daily.chapter] + ' today. Let’s put that into practice with ' + reinforcementDrills[daily.chapter] + '.',
+    '#practice/daily', 'Practice today’s skill').panel);
   const next = profile.experience === 'experienced' || state.draft ? [practiceLink, academyLink] : [academyLink, practiceLink];
   next[0].classList.add('primary');
   actions.append(...next);
@@ -593,6 +613,16 @@ function renderAcademy() {
   intro.append(node('h2', 'Knowledge before capital.'),
     ambientReflection(activeProfile().study.customReflections),
     node('p', 'Explore the markets. Develop your understanding. Move with intention.'));
+  const growth = academyGrowth(state.learning);
+  intro.append(node('small', growth.level + ' · ' + growth.days + ' Academy days logged'));
+  if (growth.days) {
+    const recentReports = state.learning.daily.slice(-7);
+    const independent = recentReports.reduce((total, report) => total + report.independent, 0);
+    const total = recentReports.reduce((count, report) => count + (report.total ?? 3), 0);
+    intro.append(node('p', independent + ' of ' + total +
+      ' first answers correct without a hint across your last ' + recentReports.length +
+      (recentReports.length === 1 ? ' Academy day.' : ' Academy days.')));
+  }
   const journeys = node('section', undefined, 'academy-journeys');
   journeys.append(node('h2', 'Market Journeys'));
   const grid = node('div', undefined, 'academy-track-grid');
@@ -619,12 +649,23 @@ function renderAcademy() {
 
 function renderPractice() {
   const state = activeProfile().state;
+  const report = location.hash === '#practice/daily' && state.learning.daily.find(item => item.day === academyDay());
+  const focus = report ? reinforcementDrills[report.chapter] : undefined;
   const panel = node('section', undefined, 'panel practice-note');
   panel.append(node('p', 'Five synthetic chart drills · 10 rounds · Guided or Pro · Legacy drill scoring'));
   if (state.draft) panel.append(node('small', 'Resuming saved draft · ' + state.draft.session.results.length + ' of 10 decisions recorded.'));
   else panel.append(node('small', 'Your session saves as you go. Open Market Studio for local historical replay.'));
+  if (report) {
+    panel.append(node('p', 'Today’s reinforcement · ' + focus + (state.draft?.session.results.length && state.draft.focus !== focus ? ' · Finish your saved draft or select this drill when ready.' : '')));
+    const symbol = report.market === 'bitcoin' ? 'COINBASE:BTCUSD' : 'OANDA:XAUUSD';
+    const marketChart = link('Open ' + marketNames[report.market] + ' market chart on TradingView', 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(symbol));
+    marketChart.target = '_blank';
+    marketChart.rel = 'noopener noreferrer';
+    panel.append(marketChart, node('p', marketObservation[report.chapter]),
+      node('small', 'Quote timing depends on the feed. Scored drills use synthetic data.'));
+  }
   workspace.append(panel);
-  renderTraining('practice');
+  renderTraining('practice', undefined, undefined, focus);
 }
 
 function renderPerformance() {
@@ -643,11 +684,18 @@ function renderPerformance() {
     skills.append(row);
   }
   if (skills.children.length === 1) skills.append(node('p', 'No scored drills recorded yet.'));
+  const recentSession = state.history.at(-1);
+  if (recentSession) workspace.append(workspaceGuide(
+    'Your most recent ' + recentSession.focus + ' session was ' + recentSession.correct + ' of ' + recentSession.rounds +
+    ' correct. Review the evidence behind one of those decisions before your next session.', '#practice', 'Open Free Practice').panel);
   workspace.append(node('p', 'Accuracy, grades and R come from synthetic legacy drills.'), metrics, skills, recent(state, true));
 }
 
 function render(focus = false) {
   const page = route();
+  const profile = activeProfile();
+  const release = document.querySelector('.release');
+  release.textContent = page !== 'entrance' && profile ? academyGrowth(profile.state.learning).level : 'V2 · Release 2';
   navigation.hidden = page === 'entrance' || (!guest && !store.book.active);
   syncNavigation();
   for (const anchor of navigation.querySelectorAll('a')) {
@@ -674,18 +722,35 @@ function render(focus = false) {
   if (page === 'studio') {
     const selected = location.hash.split('/')[1];
     const market = ['gold', 'stocks'].includes(selected) ? selected : activeProfile().market;
+    const report = profile.state.learning.daily.find(item => item.day === academyDay());
+    const guide = workspaceGuide(report ? marketObservation[report.chapter] :
+      'Use revealed candles to identify a setup. Define what would invalidate it before placing a paper order.',
+      '#practice', 'Practice a chart decision');
+    workspace.append(guide.panel);
     const recordDecision = (profile, command, market) => {
       recordPaperDecision(profile.state, command);
       recordActivity(profile.state.learning, { type: 'studio', market, action: command.type === 'entry' ? command.side : command.type });
     };
+    const announce = command => {
+      const replies = {
+        entry: 'Your paper entry is queued. Advance the replay to see whether it fills.',
+        exit: 'Your paper exit is queued. Advance the replay to review the result.',
+        cancel: 'You canceled the pending paper order. Check whether your original setup still holds.'
+      };
+      if (replies[command?.type]) guide.message.textContent = replies[command.type];
+    };
     renderStudio(workspace, market, guest ? 'guest' : store.book.active,
-      (command, market) => updateProfile(profile => recordDecision(profile, command, market)),
+      async (command, market) => { if (await updateProfile(profile => recordDecision(profile, command, market))) announce(command); },
       {
         get: market => activeProfile().portfolio[market],
-        save: (market, run, checkpoint, paper, command) => updateProfile(profile => {
-          savePortfolioWeek(profile.portfolio[market], run, checkpoint, paper);
-          if (command) recordDecision(profile, command, market);
-        })
+        save: async (market, run, checkpoint, paper, command) => {
+          const saved = await updateProfile(profile => {
+            savePortfolioWeek(profile.portfolio[market], run, checkpoint, paper);
+            if (command) recordDecision(profile, command, market);
+          });
+          if (saved) announce(command);
+          return saved;
+        }
       });
   }
   if (page === 'portfolio') renderPortfolioLab(workspace, () => activeProfile().portfolio,

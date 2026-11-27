@@ -53,7 +53,26 @@ async function run() {
     const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
     await gold.click();
     await frame.getByRole('heading', { name: /Gold journey/ }).waitFor();
-    await frame.getByRole('region', { name: 'GxB Academy Guide' }).waitFor();
+    await frame.getByRole('region', { name: 'GXB AI' }).waitFor();
+    const journey = frame.locator('.academyJourneyLayout .journeyHero');
+    const guide = frame.getByRole('region', { name: 'GXB AI' });
+    assert.ok(await guide.locator('.gxb-guide-avatar').evaluate(avatar =>
+      getComputedStyle(avatar).backgroundImage.startsWith('url("data:image/webp;base64,')));
+    const left = await journey.boundingBox();
+    const right = await guide.boundingBox();
+    assert.ok(left.x + left.width <= right.x);
+    assert.ok(await journey.locator('.academyJourneyArt').evaluate(async art => {
+      const style = getComputedStyle(art);
+      const { height } = art.getBoundingClientRect();
+      const photo = new Image();
+      photo.src = style.backgroundImage.slice(5,-2);
+      await photo.decode();
+      return style.backgroundImage.startsWith('url("data:image/webp') && style.backgroundSize === 'cover' &&
+        height >= 112 && height <= 176 && photo.naturalWidth / photo.naturalHeight > 2.9;
+    }));
+    await journey.getByText(/Level 1 · Beginner/).waitFor();
+    await journey.getByRole('heading', { name: 'Journey map' }).waitFor();
+    assert.equal(await journey.locator('.academyJourneyMap button').count(), 7);
     assert.equal(await frame.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
     await capture('11-gold-journey');
     await page.getByRole('link', { name: 'Cryptocurrency', exact: true }).click();

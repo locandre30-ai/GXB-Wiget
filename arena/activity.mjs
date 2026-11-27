@@ -9,7 +9,7 @@ function cleanEvent(event) {
   if (event.type === 'pressure' && CHECK_INS.includes(event.feeling) && typeof event.planned === 'boolean') return { ...base, feeling: event.feeling, planned: event.planned };
   if (event.type === 'academy' && MARKETS.slice(0, 2).includes(event.market) &&
       Number.isInteger(event.chapter) && event.chapter >= 0 && event.chapter <= 6 &&
-      Number.isInteger(event.question) && event.question >= 0 && event.question < 3 &&
+      Number.isInteger(event.question) && event.question >= 0 && event.question < 12 &&
       Number.isInteger(event.choice) && event.choice >= 0 && event.choice < 4 &&
       typeof event.correct === 'boolean' && typeof event.first === 'boolean' && typeof event.hint === 'boolean') {
     const { market, chapter, question, choice, correct, first, hint } = event;

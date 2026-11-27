@@ -1,6 +1,6 @@
 import { storageLock } from './storage-lock.mjs';
-import { openStore } from './store.mjs?v=save-1';
-export { cleanState } from './store.mjs?v=save-1';
+import { openStore } from './store.mjs?v=daily-10';
+export { cleanState } from './store.mjs?v=daily-10';
 
 function report(problem) {
   const status = document.querySelector('#trainingStatus');

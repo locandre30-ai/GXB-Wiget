@@ -36,6 +36,9 @@ async function run() {
       await page.getByLabel('Fee per fill').fill('.5');
       await page.getByRole('button', { name: 'Queue paper entry' }).click();
       await page.getByText(/Paper entry queued/).waitFor();
+      await page.getByRole('region', { name: 'GXB AI' }).getByText(/Your paper entry is queued/).waitFor();
+      assert.ok(await page.getByRole('region', { name: 'GXB AI' }).locator('.gxb-guide-avatar').evaluate(avatar =>
+        getComputedStyle(avatar).backgroundImage.startsWith('url("data:image/webp;base64,')));
     };
     const chart = page.getByRole('img', { name: /Candlestick chart/ });
     await page.goto(url);

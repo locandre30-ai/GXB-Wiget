@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>GXB — ICC Practice Arena</title>
+  <link rel="stylesheet" href="./arena/market-art.css">
+  <link rel="stylesheet" href="./arena/academy-art.css">
+  <link rel="stylesheet" href="./arena/journey-art.css">
+  <link rel="stylesheet" href="./arena/guide-avatar.css">
   <style>
     /* ==========================================================
       GXB — ICC Practice Arena
@@ -56,6 +60,16 @@
     body.embedded .arena { box-shadow: none; --maxW: 100%; background: #162337 }
     .guideHandoff textarea:not([hidden]) { display: block; width: 100%; margin: 8px 0; padding: 8px; color: var(--ink); background: #162337; border: 1px solid #34445c; border-radius: 8px }
     .academyLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(255px, 340px); gap: 18px; align-items: start }
+    body.embedded .home:has(.academyJourneyLayout) { margin-inline: 0 }
+    .academyJourneyArt {
+      height: clamp(112px, 16vw, 176px); margin-bottom: 16px;
+      border: 1px solid #435470; border-radius: 8px; background-color: #101a2a;
+      background-size: cover; background-position: center; background-repeat: no-repeat;
+    }
+    .academyJourneyMap { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr)); gap: 7px; list-style: none; padding: 0; margin: 10px 0 0 }
+    .academyJourneyMap button { display: grid; gap: 3px; width: 100%; text-align: left; min-height: 58px; border-radius: 8px; text-transform: none; letter-spacing: normal; white-space: normal }
+    .academyJourneyMap button small { color: var(--muted) }
+    .academyJourneyMap button[data-recommended] { border-color: var(--gold) }
     body.embedded .home { max-width: min(100%, 1480px); }
     .academyLayout .journeyHero { min-width: 0 }
     body.embedded .journeyHero .pathRow button { flex: 1; text-align: left; white-space: normal; padding-inline: 14px; }
@@ -68,16 +82,15 @@
     .guideIdentity { display: flex; align-items: center; gap: 10px; color: var(--gold); margin-bottom: 14px }
     .academyGuide .guideIdentity > strong { font-size: 1rem; line-height: 1.3; margin: 0 }
     .academyVisuals figure > small { display: block }
-    .guideAvatar { width: 66px; height: 66px; flex: 0 0 66px; display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: 16px; border: 1px solid var(--gold); background: linear-gradient(150deg,#263852,#101a2a); color: var(--gold) }
-    .guideCrown { font-size: 22px; line-height: 20px }
-    .guideVisor { width: 29px; height: 12px; border: 1px solid #7186a4; border-radius: 6px; display: flex; justify-content: space-evenly; align-items: center; background: #0c1524 }
-    .guideVisor::before,.guideVisor::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--gold) }
-    .guideMark { font: 700 9px/1.3 ui-monospace,monospace; letter-spacing: .12em }
+    .guideAvatar { --guide-size: 60px }
+    #practiceGuide { display: flex; align-items: center; gap: 10px }
     .guideBubble { position: relative; padding: 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #526481; background: #18263b }
     .guideBubble::before { content: ''; position: absolute; top: -6px; left: 20px; width: 10px; height: 10px; transform: rotate(45deg); background: #18263b; border-top: 1px solid #526481; border-left: 1px solid #526481 }
     .guideBubble h2 { font-size: 1.05rem; margin: 0 0 12px }
     .guideBubble .homeProfiles { display: grid; gap: 6px }
     .guideBubble .chip { text-align: left; white-space: normal; text-transform: none; letter-spacing: normal }
+    .guideBubble .chip[data-correct-answer] { color: #a4f0cc; border-color: #57cc9c; background: #123c35; opacity: 1 }
+    .guideBubble .answer-check { margin-inline-start: .5em; font-weight: 800 }
     .guideBubble .missionFeedback { min-height: 0; padding: 0; margin: 12px 0; color: var(--ink) }
     .guideBubble .missionFeedback:empty { display: none }
     .guideConversation { display: grid; gap: 12px; margin: 12px 0 }
@@ -405,6 +418,17 @@
       min-height: 44px;
     }
     .prompt b{ color: var(--diamond); }
+    .practice-question { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px }
+    .practice-question-bubble { position: relative; min-width: 0; flex: 1; padding: 7px 10px; border: 1px solid #526481; border-radius: 8px; background: #18263b }
+    .practice-question-bubble::before { content: ''; position: absolute; left: -5px; top: 15px; width: 8px; height: 8px; background: inherit; border-left: 1px solid #526481; border-bottom: 1px solid #526481; transform: rotate(45deg) }
+    .practice-question-bubble > strong { color: var(--gold); font-size: .72rem }
+    .practice-question-bubble .prompt { min-height: 0; margin: 0; padding-inline-end: 38px }
+    .practice-question-info { color: var(--muted); font-size: .82rem }
+    .practice-question-info[open] { margin-top: 8px }
+    .practice-question-info summary { position: absolute; inset: 0 0 auto auto; display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; color: var(--gold); cursor: pointer; list-style: none }
+    .practice-question-info summary::-webkit-details-marker { display: none }
+    .practice-question-info p { margin: 4px 0 }
+    .practice-question-info a { color: var(--gold) }
 
     .answers{ display:flex; gap:10px; flex-wrap:wrap; }
     .btn{
@@ -655,7 +679,18 @@
         <span class="rlive" id="rLbl">Session R: 0.0</span>
       </div>
 
-      <p class="prompt" id="prompt"></p>
+      <div class="practice-question">
+        <span class="gxb-guide-avatar" aria-hidden="true"></span>
+        <div class="practice-question-bubble">
+          <strong>GXB AI</strong>
+          <p class="prompt" id="prompt"></p>
+          <details class="practice-question-info" id="practiceQuestionInfo">
+            <summary aria-label="Practice information">ⓘ</summary>
+            <p id="practiceQuestionNote"></p>
+            <a id="practiceAcademyLink" href="./arena.html#academy" target="_top">Return to your Academy journey</a>
+          </details>
+        </div>
+      </div>
       <div class="guide" id="guide">
         <span class="gk">🧭 What you're looking at</span><span id="guideText"></span>
         <div class="asks" id="asks"></div>
@@ -691,6 +726,7 @@
             <div class="sStat"><div class="v" id="gXP">+0</div><div class="k">XP Earned</div></div>
           </div>
           <p class="sNote" id="gNote"></p>
+          <p class="sNote" id="practiceGuide" role="status"><span class="gxb-guide-avatar" aria-hidden="true"></span><span id="practiceGuideMessage"></span></p>
           <div class="kingdom" id="kingdom" style="display:none;">
             <span class="kk">👑 Kingdom Note</span>
             <p class="kLine" id="kLine"></p>
@@ -718,9 +754,9 @@
     location.replace(new URL("./arena.html", location.href));
   } else
   (async () => {
-    const { connectTraining, cleanState } = await import("./arena/training.mjs?v=save-1");
-    const { CHECK_INS, recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs");
-    const { cleanIntroduction, introductionReply, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions } = await import("./arena/learning.mjs");
+    const { connectTraining, cleanState } = await import("./arena/training.mjs?v=daily-10");
+    const { CHECK_INS, recordActivity, pressureQuestion, tutoringEvidence, latestCheckIn } = await import("./arena/activity.mjs?v=daily-10");
+    const { GUIDE_NAME, DAILY_QUESTIONS, dailyApplications, academyDay, academyGrowth, reinforcementDrills, cleanIntroduction, introductionReply, bitcoinLessons, bitcoinReads, checkpointCues, cleanLearning, learningFocus, recordCheckpoint, recoveryQuestions } = await import("./arena/learning.mjs?v=daily-10");
     "use strict";
     /* ==========================================================
       ICC Practice Arena engine
@@ -1764,10 +1800,21 @@
       redraw();
     }
 
+    $("practiceQuestionInfo").addEventListener("toggle", event => {
+      if (!event.currentTarget.open) return;
+      const saved = ST.draft?.session.results.length ?? 0;
+      $("practiceQuestionNote").textContent = saved
+        ? `${saved} of ${ROUNDS_PER_SESSION} decisions saved. Pick up at the next setup.`
+        : "Name the chart evidence before you answer. Your decisions save as you go.";
+      const track = ST.journey?.market === "bitcoin" ? "bitcoin" : "gold";
+      $("practiceAcademyLink").href = "./arena.html#academy/" + track;
+    });
+
     function resumePractice(){
       $("iccReplay").hidden=true;
-      if(!ST.draft){
-        FOCUS = FOCI[0];
+      const recommended = FOCI.includes(connection.focus) ? connection.focus : undefined;
+      if(!ST.draft || (recommended && ST.draft.focus!==recommended && !ST.draft.session.results.length)){
+        FOCUS = recommended ?? FOCI[0];
         paintFocus();
         newSession();
         return;
@@ -1867,13 +1914,15 @@
     }
     function scaleChartTime(g, anchor, factor, pan=0){
       const hourly=chartMinutes===60;
-      const span=clampChart(g.span*factor,hourly?1:Math.min(2,g.all.length),hourly?96:g.all.length);
+      const limit=hourly?96:g.all.length*3;
+      const span=clampChart(g.span*factor,hourly?1:Math.min(2,g.all.length),limit);
       const focus=g.start+g.span*anchor;
-      const nextStart=hourly && factor<1 && (focus<0 || focus>=g.all.length)
+      const nextStart=factor<1 && (focus<0 || focus>=g.all.length)
         ? clampChart(focus,.5,g.all.length-.5)-span/2
         : g.start+(g.span-span)*anchor+pan;
       chartView.span=span;
-      chartView.start=clampChart(nextStart,hourly?.5-span:0,hourly?g.all.length-.5:g.all.length-span);
+      chartView.start=!hourly && span>=g.all.length ? (g.all.length-span)/2 :
+        clampChart(nextStart,hourly?.5-span:0,hourly?g.all.length-.5:g.all.length-span);
     }
     function scaleChartPrice(g, anchor, factor){
       const range=g.hi-g.lo;
@@ -2127,6 +2176,10 @@
       $("gXP").textContent = "+" + SES.xpGained;
       $("gNote").textContent = `🔥 Day streak: ${ST.dayStreak} · Sessions completed: ${ST.sessions}. ` +
         `Copy the log below into ICC Practice Sessions to keep the journal compounding.`;
+      const guide = $("practiceGuideMessage");
+      guide.textContent = GUIDE_NAME + ' · ' + (ST.sessions===1 ? 'You finished your first Free Practice session. ' : 'You finished another Free Practice session. ') +
+        `You read ${ROUNDS_PER_SESSION} setups and got ${SES.correct} right. ` +
+        (SES.correct===ROUNDS_PER_SESSION ? 'Try explaining the evidence behind each answer on your next rep.' : 'Review one missed setup in the session log and name what you would look for next time.');
 
       // Kingdom note — earned affirmation paired with the evidence that fired it
       const kctx = {
@@ -2522,6 +2575,63 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         bitcoin:{name:'Bitcoin',symbol:'BTC/USD',instrument:'BTC/USD · Bitcoin / US dollar',description:'Start with Bitcoin. Learn how price moves, how trends form and when to wait.',intro:'Bitcoin is a digital asset traded on exchanges. BTC/USD identifies Bitcoin priced in US dollars. Prices can differ between venues, and movement can be sharp. Your first task is observation.',base:60000,unit:100}
       };
       const PATH=['Meet the market','Read the trend','Understand pullbacks','Define risk','Practice entries','Manage exits','Review a session'];
+      const dailyMode=()=>typeof embedded!=='undefined' && embedded==='academy';
+      const todayReport=()=>ST.learning?.daily?.find(report=>report.day===academyDay());
+      function dailyReport(report){
+        const growth=academyGrowth(ST.learning);
+        const total=report.total??3;
+        home.replaceChildren(action('← My journey',showHome),el('h1','Great job putting in the work today.'));
+        const card=el('section',undefined,'homeCard');
+        const message=el('p',growth.days===1
+          ? 'You finished your first logged Academy session. I saw you work through all '+total+' questions.'
+          : 'You finished today’s Academy session. Let’s carry what you learned into the next chart.');
+        const {guide,bubble}=academyGuide(message);
+        bubble.append(el('h2','Today’s Academy report'),
+          el('p',MARKETS[report.market].name+' · '+PATH[report.chapter]),
+          el('p',total+' questions completed · '+report.independent+' of '+total+' first answers correct without a hint'),
+          el('p','Training level: '+growth.level+' · '+growth.days+' Academy '+(growth.days===1?'day':'days')+' logged'),
+          el('p','Reinforce today’s lesson with '+reinforcementDrills[report.chapter]+'. Come back tomorrow for your next Academy lesson. Free Practice is open whenever you want another rep.'),
+          action('Reinforce in Free Practice →',()=>connection.exit('practice/daily'),true));
+        bubble.append(action('Continue in Academy · 2 bonus questions',()=>{
+          const attempts=ST.learning.evidence[report.market]?.[report.chapter]?.attempts??total;
+          showApplications(report.market,report.chapter,Math.max(0,attempts-total),()=>dailyReport(report),true);
+        }));
+        card.append(guide);home.append(card);window.scrollTo(0,0);
+      }
+      async function finishDaily(market,chapter,baseline){
+        const existing=todayReport();
+        if(existing){dailyReport(existing);return;}
+        const independent=(ST.learning?.evidence[market]?.[chapter]?.firstCorrect??0)-baseline;
+        const report={day:academyDay(),market,chapter,total:DAILY_QUESTIONS,independent:Math.min(DAILY_QUESTIONS,Math.max(0,independent))};
+        ST.learning.daily=[...(ST.learning.daily??[]),report].slice(-366);
+        const saved=await saveState(ST);
+        dailyReport(report);
+        if(!saved)home.append(el('p','This report could not be saved. It is available in this tab.','homeStatus'));
+      }
+      function showApplications(market,chapter,attempts,finish,bonus=false){
+        const applications=dailyApplications(chapter,attempts);
+        const required=DAILY_QUESTIONS-3;
+        const questions=bonus?applications.slice(required):applications.slice(0,required);
+        const offset=bonus?DAILY_QUESTIONS:3;
+        let index=0;
+        function draw(){
+          const [prompt,right,wrong,other,why]=questions[index];
+          const shift=(attempts+chapter+index)%3;
+          const options=[right,wrong,other];
+          const answers=[...options.slice(shift),...options.slice(0,shift)];
+          const feedback=el('p','','missionFeedback');
+          feedback.setAttribute('aria-live','polite');
+          const guide=adaptiveChoices({market,chapter,question:offset+index,checkpointIndex:bonus?index:offset+index,
+            total:bonus?questions.length:DAILY_QUESTIONS, scored:!bonus, prompt,answers,correct:(3-shift)%3,why,feedback,
+            advance:()=>{index++;if(index<questions.length)draw();else finish();},
+            finished:index<questions.length-1?'Next question →':bonus?'Back to today’s report →':'Finish today’s session →'});
+          home.replaceChildren(action('← My journey',bonus?finish:showHome),el('h1',PATH[chapter]),
+            el('small',bonus?'Bonus question '+(index+1)+' of '+questions.length:'Question '+(offset+index+1)+' of '+DAILY_QUESTIONS,'checkpointLabel'),
+            guide);
+          window.scrollTo(0,0);
+        }
+        draw();
+      }
       function marketCards(){
         const cards=el('div',undefined,'marketChoices');
         for(const [key,m] of Object.entries(MARKETS)){
@@ -2543,6 +2653,39 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         if(!m){section.append(el('h2','Every journey begins with the first read.'));const reveal=el('details',undefined,'journeyReveal'),toggle=el('summary','Start Here');toggle.title='Start Here';toggle.setAttribute('aria-label','Start Here');reveal.append(toggle,el('p','Read the market, learn its charts, practice making thoughtful decisions.'),marketCards());section.append(reveal);return section;}
         const done=!!(j.completed&&j.completed[j.market]);
         const next=done?PATH.findIndex((_,i)=>i>0&&!j.skills?.[j.market]?.includes(i)):0;
+        if(dailyMode()){
+          const today=todayReport();
+          const growth=academyGrowth(ST.learning);
+          const review=learningFocus(ST,j.market);
+          const completed=(j.skills?.[j.market]?.length??0)+Number(done);
+          const oldest=PATH.map((_,chapter)=>chapter).sort((a,b)=>
+            (ST.learning?.daily?.findLast(item=>item.market===j.market && item.chapter===a)?.day??'')
+              .localeCompare(ST.learning?.daily?.findLast(item=>item.market===j.market && item.chapter===b)?.day??''))[0];
+          const chapter=review && !review.source && completed>=2 && ST.learning?.daily?.at(-1)?.chapter!==review.chapter
+            ? review.chapter : next>=0?next:oldest;
+          const art=el('div',undefined,'academyJourneyArt market-art-'+j.market);
+          art.setAttribute('aria-hidden','true');
+          section.append(art,el('h2',`${m.symbol} ${m.name} journey`),
+            el('p',growth.level+' · '+growth.days+' Academy days logged'),
+            today ? action('View today’s report →',()=>dailyReport(today),true)
+              : action('Start today: '+PATH[chapter]+' →',()=>chapter===0?mission(j.market):skillMission(j.market,chapter),true));
+          if(!today && chapter===review?.chapter && !review.source)section.append(el('small',review.reason));
+          const map=el('ol',undefined,'academyJourneyMap');
+          for(const [index,title] of PATH.entries()){
+            const passed=index===0?done:j.skills?.[j.market]?.includes(index);
+            const item=el('li');
+            const control=action((index+1)+'. '+title,()=>index===0?mission(j.market):skillMission(j.market,index));
+            const status=passed?'Completed':today?'Available tomorrow':index===chapter?'Recommended today':'Available';
+            control.append(el('small',status));
+            if(index===chapter && !today)control.setAttribute('data-recommended','');
+            control.disabled=Boolean(today);
+            item.append(control);
+            map.append(item);
+          }
+          section.append(el('h3','Journey map'),
+            el('p',today?'Your next guided lesson opens tomorrow. Explore the map or reinforce today’s skill in Free Practice.':'Follow today’s recommendation or choose any lesson on this map.'),map);
+          return section;
+        }
         section.append(el('h2',`${m.symbol} ${m.name} journey`),el('p',next<0?'You have explored every introductory skill. Keep practicing, or revisit any lesson below.':`Up next: ${PATH[next]}. Continue whenever you are ready.`),action(next===0?'Begin first mission →':next<0?'Continue in Free Practice →':`Continue: ${PATH[next]} →`,()=>next===0?mission(j.market):next<0?train():skillMission(j.market,next),true));
         if(typeof embedded === 'undefined' || !embedded) section.append(action('Change market',chooseMarket));
         const path=el('div');
@@ -2551,12 +2694,11 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
       }
       function academyGuide(message){
         const guide=el('section',undefined,'academyGuide');
-        guide.setAttribute('aria-label','GxB Academy Guide');
+        guide.setAttribute('aria-label',GUIDE_NAME);
         const identity=el('div',undefined,'guideIdentity');
-        const avatar=el('div',undefined,'guideAvatar');
+        const avatar=el('span',undefined,'gxb-guide-avatar guideAvatar');
         avatar.setAttribute('aria-hidden','true');
-        avatar.append(el('span','♔','guideCrown'),el('span',undefined,'guideVisor'),el('span','GXB','guideMark'));
-        identity.append(avatar,el('strong','GxB Academy Guide'));
+        identity.append(avatar,el('strong',GUIDE_NAME));
         const bubble=el('div',undefined,'guideBubble');
         bubble.append(message);
         guide.append(identity,bubble);
@@ -2683,7 +2825,7 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
 
       function academyJourney(){
         const market=ST.journey.market;
-        const layout=el('div',undefined,'academyLayout');
+        const layout=el('div',undefined,'academyLayout academyJourneyLayout');
         const side=el('aside',undefined,'academySide');
         side.append(guideOverview(market));
         layout.append(journeyPanel(),side);
@@ -2699,12 +2841,20 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         return layout;
       }
 
-      function adaptiveChoices({market,chapter,question,prompt,answers,correct,why,feedback,advance,finished,onMiss}){
+      function adaptiveChoices({market,chapter,question,checkpointIndex=question,total=3,scored=true,prompt,answers,correct,why,feedback,advance,finished,onMiss}){
         const choices=el('div',undefined,'homeProfiles');
         const support=el('div',undefined,'adaptiveSupport');
         let first=true,resolved=false,usedHint=false;
+        const prior=ST.learning?.evidence?.[market]?.[chapter];
+        const needsPractice=prior?.attempts>=2 && prior.firstCorrect/prior.attempts<.7;
+        const clue=chapter===1 && question===0
+          ? 'Compare successive swing highs and successive swing lows. Name the structure before judging any one candle.'
+          : checkpointCues[chapter];
         const details=el('details');
-        details.append(el('summary','Show a clue'),el('p',checkpointCues[chapter]));
+        details.append(el('summary','Show a clue'),el('p',clue));
+        if(needsPractice) details.append(el('p',chapter===1
+          ? 'Try tracing two peaks and two troughs with your cursor. Use the wick tips to compare each turning point with the one before it.'
+          : 'Before selecting an answer, try this check: '+recoveryQuestions[chapter][0]));
         details.ontoggle=()=>{if(details.open)usedHint=true;};
         support.append(details);
         let recovery;
@@ -2712,17 +2862,18 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           const button=action(answer,()=>{
             if(resolved||button.disabled)return;
             const right=index===correct;
+            const independent=first && !usedHint && !details.open;
             ST.learning ??= cleanLearning();
             recordActivity(ST.learning,{type:"academy",market,chapter,question,choice:index,correct:right,first,hint:usedHint||Boolean(details.open)});
             if(first){
-              recordCheckpoint(ST,market,chapter,right&&!usedHint&&!details.open);
+              if(scored) recordCheckpoint(ST,market,chapter,right&&!usedHint&&!details.open);
               first=false;
             }
             saveState(ST);
             if(!right){
               onMiss?.();
               button.disabled=true;
-              feedback.textContent='Reconsider “'+answer+'”. '+checkpointCues[chapter];
+              feedback.textContent='Reconsider “'+answer+'”. '+clue;
               details.open=true;
               if(!recovery){
                 recovery=el('section',undefined,'homeCard');
@@ -2740,7 +2891,14 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
             resolved=true;
             if(recovery) recovery.hidden=true;
             for(const item of choices.children)item.disabled=true;
-            feedback.textContent='That’s it. '+why;
+            button.setAttribute('data-correct-answer','');
+            button.setAttribute('aria-label',answer+' (correct answer)');
+            const checkmark=el('span','✓','answer-check');
+            checkmark.setAttribute('aria-hidden','true');
+            button.append(checkmark);
+            const acknowledgment=independent?'You spotted it on the first try.':
+              recovery?'You found it after revisiting the evidence.':'You used the clue to find it.';
+            feedback.textContent=acknowledgment+' '+why+' Checkpoint '+(checkpointIndex+1)+' of '+total+' complete.';
             const reflection=el('details');
             const investing=ST.learning?.assessment?.goal==='Study longer-term entries' || /\b(longer.term|long.term|investing|investor|swing trading)\b/i.test(ST.learning?.introduction??'');
             reflection.append(el('summary',investing?'Apply this to a longer holding period':'Apply this to your next practice decision'),
@@ -2778,29 +2936,33 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
         home.append(academyJourney());
       }
       function mission(key){
+        if(dailyMode() && todayReport()){dailyReport(todayReport());return;}
+        const baseline=ST.learning?.evidence?.[key]?.[0]?.firstCorrect??0;
+        const attempts=ST.learning?.evidence?.[key]?.[0]?.attempts??0;
+        const total=dailyMode()?DAILY_QUESTIONS:3;
         const m=MARKETS[key];let round=0,misses=0;
         const goldReads=[
-          ['On this synthetic Gold chart, identify the sequence of rising swing highs and lows.',['Uptrend','Downtrend','Consolidation'],0,'Gold is making higher swing highs and lows. A small downward candle can still sit within an uptrend.'],
-          ['Gold’s successive rallies stall below the previous peaks. What does the chart show?',['Uptrend','Downtrend','Consolidation'],1,'Swing highs and lows are stepping downward. A single upward candle does not confirm a reversal.'],
+          ['On this synthetic Gold chart, identify the sequence of rising swing highs and lows.',['Uptrend','Downtrend','Consolidation'],0,'Gold is making higher highs and higher lows. A candle that closes down can still sit within an uptrend.'],
+          ['Gold’s successive rallies stall below the previous peaks. What does the chart show?',['Uptrend','Downtrend','Consolidation'],1,'Lower lows and lower highs show a downtrend. A single upward candle does not confirm a reversal.'],
           ['Gold keeps returning between similar highs and lows. What structure fits these price swings?',['Uptrend','Downtrend','Consolidation'],2,'Repeated turns without directional progress suggest consolidation.']
         ];
         const reads=key==='bitcoin'?bitcoinReads:goldReads;
         function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / MISSION 1`,'eyebrow'));home.append(action('← My journey',showHome));window.scrollTo(0,0);}
         function intro(){frame();home.append(el('h1','Meet the market.'),el('p',m.intro));const card=el('section',undefined,'homeCard');card.append(el('h2','What is day trading?'),el('p','Day trading means opening and closing a position within the same trading day. Your learning starts earlier: reading price, understanding risk, and knowing when to stay out.'),el('h2','Your first mission'),el('p','Read three small charts: uptrend, downtrend and consolidation. Each candle summarizes an opening price, a closing price, a high and a low. Here, teal candles close higher than they open; pink candles close lower. The wick shows the high and low.'),action('Show me the chart →',draw,true));home.append(card,el('small','Illustrative, synthetic prices in US dollars. This lesson is not a view of today’s market.'));}
         function draw(){
-          frame();home.append(el('h1',`Read ${round+1} of 3`));
+          frame();home.append(el('h1',`Read ${round+1} of ${total}`));
           const [prompt,answers,correct,why]=reads[round];
           const feedback=el('p','Choose an answer to compare your read with the chart.','missionFeedback');
           feedback.setAttribute('aria-live','polite');
-          const guide=adaptiveChoices({market:key,chapter:0,question:round,prompt,answers,correct,why,feedback,
-            advance:()=>{round++;if(round<reads.length)draw();else complete();},
-            finished:round<reads.length-1?'Next chart →':'Complete mission →',onMiss:()=>misses++});
+          const guide=adaptiveChoices({market:key,chapter:0,question:round,total,prompt,answers,correct,why,feedback,
+            advance:()=>{round++;if(round<reads.length)draw();else if(dailyMode())showApplications(key,0,attempts,complete);else complete();},
+            finished:round<reads.length-1?'Next chart →':dailyMode()?'Next question →':'Complete mission →',onMiss:()=>misses++});
           home.append(checkpointLayout(skillChart(m,0,round),guide));
         }
-        function complete(){const j=journeyState();if(!j.completed)j.completed={};if(!j.completed[key])j.completed[key]={date:new Date().toISOString(),version:1};j.market=key;saveState(ST);frame();home.append(el('h1','Your first market read is complete.'),el('p',`You explored ${m.name} and identified three market states.${misses?' You used feedback to work through the charts.':' You identified all three on your first attempt.'} This guided lesson is separate from your scored Arena sessions.`),action('Continue: Read the trend →',()=>skillMission(key,1),true),action('Return to my journey →',showHome),action('Try Free Practice →',train));}
+        function complete(){const j=journeyState();if(!j.completed)j.completed={};if(!j.completed[key])j.completed[key]={date:new Date().toISOString(),version:1};j.market=key;if(dailyMode()){finishDaily(key,0,baseline);return;}saveState(ST);frame();home.append(el('h1','Your first market read is complete.'),el('p',`You explored ${m.name} and identified three market states.${misses?' You used feedback to work through the charts.':' You identified all three on your first attempt.'} This guided lesson is separate from your scored Arena sessions.`),action('Continue: Read the trend →',()=>skillMission(key,1),true),action('Return to my journey →',showHome),action('Try Free Practice →',train));}
         intro();
       }
-      function skillChart(m,chapter,round){
+      function skillChart(m,chapter,round,variant=0){
         const figure=el('figure');figure.style.margin='18px 0';
         const bitcoin=m.symbol==="BTC/USD";
         if(chapter===6){
@@ -2817,19 +2979,42 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           5:[[4,6,7,5,3,1],[2,4,3,6,5,8,7],[2,4,3,6,5,8,10]]
         };
         const btcOpening=[[11,9,10,7,8,5,6,3],[2,5,3,7,6,8,7,12],[5,8,4,7,4,8,5,7]];
-        const values=bitcoin&&chapter===0?btcOpening[round]:sets[chapter][round],generic=chapter===3;
+        const pullbackVariants=[
+          [[2,4.5,3,6,4.2,9.5,7.7,6.3],[2,5,3,7,4.4,9,6,2.6],[2,4,3,7,9,8.4,9.25,8.7,9.1]],
+          [[2,5,3.2,7,4.8,10,8.2,6.7],[3,6,4,8,5.4,10,7,3.3],[2,5,4,8,10,9.2,10.3,9.4,10.1]]
+        ];
+        const values=chapter===2 && variant ? pullbackVariants[variant-1][round]
+          : bitcoin&&chapter===0?btcOpening[round]:sets[chapter][round],generic=chapter===3;
         const price=v=>generic?(bitcoin?60000+(v-100)*250:v):m.base+v*m.unit;
         // One deterministic minute series per setup. Every timeframe aggregates
         // these same observations; switching never invents a different market.
         const minutes=[];
-        values.forEach((v,i)=>{let start=i?values[i-1]:v-.5;if(generic&&round===2&&i===3)start=96.5;
-          for(let t=0;t<60;t++){const o=price(start+(v-start)*t/60),c=price(start+(v-start)*(t+1)/60),wick=generic?(bitcoin?5:.02):m.unit*.02;minutes.push({o,c,h:Math.max(o,c)+wick,l:Math.min(o,c)-wick,time:i*60+t});}
+        values.forEach((v,i)=>{
+          let start=i?values[i-1]:v-.5;
+          if(generic&&round===2&&i===3)start=96.5;
+          const phase=i*1.83+chapter*.79+round*1.53+(bitcoin?2.41:0);
+          const closeAt=t=>{
+            const fraction=t/60;
+            if(generic) return price(start+(v-start)*fraction);
+            const envelope=Math.sin(Math.PI*fraction)**2;
+            const swing=Math.sin(fraction*4*Math.PI+phase)*(.48+Math.abs(v-start)*.12);
+            const churn=Math.sin(fraction*9*Math.PI-phase)*.18;
+            return price(start+(v-start)*fraction+envelope*(swing+churn));
+          };
+          for(let t=0;t<60;t++){
+            const o=closeAt(t),c=closeAt(t+1);
+            const upper=generic?(bitcoin?5:.02):m.unit*(.025+.17*(.5+.5*Math.sin(t*1.31+phase))**3);
+            const lower=generic?upper:m.unit*(.025+.17*(.5+.5*Math.cos(t*1.17-phase))**3);
+            minutes.push({o,c,h:Math.max(o,c)+upper,l:Math.min(o,c)-lower,time:i*60+t});
+          }
         });
+        const swingLowAfter=index=>minutes.slice((index+1)*60-15,(index+1)*60+15)
+          .reduce((lowest,bar)=>bar.l<lowest.l?bar:lowest);
         const money=p=>'$'+p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
         const time=t=>`${String(9+Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;
         const toolbar=el('div',undefined,'chartTools'),scroll=el('div',undefined,'chartScroll'),readout=el('p','','chartReadout'),status=el('small','','chartCaption');readout.setAttribute('aria-live','polite');
         toolbar.append(el('span',generic&&!bitcoin?'Unit-price example':m.symbol));
-        let timeframe=5,fit=true;const controls=[];
+        let timeframe=chapter===1?15:5,fit=true;const controls=[];
         function aggregate(size){const bars=[];for(let i=0;i<minutes.length;i+=size){const slice=minutes.slice(i,i+size);bars.push({o:slice[0].o,c:slice[slice.length-1].c,h:Math.max(...slice.map(b=>b.h)),l:Math.min(...slice.map(b=>b.l)),time:slice[0].time});}return bars;}
         function paint(){
           const ohlc=aggregate(timeframe),w=fit?600:Math.max(600,ohlc.length*16+110),right=w-95,step=(right-45)/ohlc.length;
@@ -2837,44 +3022,63 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           let marks='';for(let i=0;i<6;i++){const p=lo+(hi-lo)*i/5;marks+=`<path d="M25 ${y(p)}H${right}" stroke="var(--line)"/><text x="${right+8}" y="${y(p)+4}" fill="var(--muted)" font-size="11">${money(p)}</text>`;}
           const rail=(value,label)=>`<path d="M25 ${y(value)}H${right}" stroke="var(--gold)" stroke-dasharray="5 4"/><text x="${Math.max(28,right-240)}" y="${y(value)-5}" fill="var(--gold)" font-size="11">${label} ${money(value)}</text>`;
           if(generic)marks+=rail(price(100),'Planned entry')+rail(price(98),'Planned stop');
-          if(chapter===1&&round===1)marks+=rail(price(3)-m.unit*.02,'Previous swing low');
-          if(chapter===2&&round===0)marks+=rail(price(3)-m.unit*.02,'Previous swing low');
-          if(chapter===2&&round===1)marks+=rail(price(2)-m.unit*.02,'Previous swing low');
+          const markedSwing=chapter===1&&round===1 || chapter===2&&round<2 ? swingLowAfter(4) : null;
+          if(markedSwing)marks+=rail(markedSwing.l,'Previous swing low');
+          if(chapter===2 && markedSwing){
+            const zoneTop=markedSwing.l+m.unit*.55;
+            marks+=`<rect x="25" y="${y(zoneTop)}" width="${right-25}" height="${y(markedSwing.l)-y(zoneTop)}" fill="var(--gold)" opacity=".12"/>`;
+          }
+          if(chapter===2 && round===2){
+            const recent=minutes.slice(5*60);
+            const floor=Math.min(...recent.map(bar=>bar.l)),ceiling=Math.max(...recent.map(bar=>bar.h));
+            const startX=40+Math.floor(300/timeframe)*step;
+            marks+=`<rect x="${startX}" y="${y(ceiling)}" width="${right-startX}" height="${y(floor)-y(ceiling)}" fill="var(--gold)" opacity=".12"/>`;
+          }
           if(chapter===5&&round===0)marks+=rail(price(3),'Planned invalidation');
           if(chapter===5&&round===2)marks+=rail(price(6),'Planned exit');
           const bars=ohlc.map((b,i)=>{const x=40+(i+.5)*step,color=b.c>=b.o?'--up':'--dn',bw=Math.min(20,step*.65);return `<g tabindex="0" role="button" data-bar="${i}" aria-label="${time(b.time)} Open ${money(b.o)}, high ${money(b.h)}, low ${money(b.l)}, close ${money(b.c)}"><title>${time(b.time)} · O ${money(b.o)} H ${money(b.h)} L ${money(b.l)} C ${money(b.c)}</title><rect x="${x-step/2}" y="45" width="${step}" height="178" fill="transparent"/><line x1="${x}" x2="${x}" y1="${y(b.h)}" y2="${y(b.l)}" stroke="var(${color})" stroke-width="2"/><rect x="${x-bw/2}" y="${Math.min(y(b.o),y(b.c))}" width="${bw}" height="${Math.max(2,Math.abs(y(b.c)-y(b.o)))}" fill="var(${color})"${i===ohlc.length-1?' stroke="var(--gold)" stroke-width="2"':''}/></g>`;}).join('');
           let ticks='';const stride=Math.max(1,Math.ceil(ohlc.length/8));ohlc.forEach((b,i)=>{if(i%stride===0||i===ohlc.length-1)ticks+=`<text x="${40+(i+.5)*step}" y="250" fill="var(--muted)" font-size="11" text-anchor="middle">${time(b.time)}</text>`;});
-          scroll.innerHTML=`<svg class="missionChart" style="width:${fit?'100%':w+'px'};min-width:${fit?'0':w+'px'};height:270px" viewBox="0 0 ${w} 270" role="group" aria-label="${m.symbol} ${timeframe} minute synthetic chart">${marks}${bars}${ticks}</svg>`;
+          const marker=markedSwing?`<circle cx="${40+(Math.floor(markedSwing.time/timeframe)+.5)*step}" cy="${y(markedSwing.l)}" r="4" fill="var(--gold)" aria-hidden="true"/>`:'';
+          scroll.innerHTML=`<svg class="missionChart" style="width:${fit?'100%':w+'px'};min-width:${fit?'0':w+'px'};height:270px" viewBox="0 0 ${w} 270" role="group" aria-label="${m.symbol} ${timeframe} minute synthetic chart">${marks}${bars}${marker}${ticks}</svg>`;
           const show=i=>{const b=ohlc[i];readout.textContent=`${time(b.time)} · O ${money(b.o)} · H ${money(b.h)} · L ${money(b.l)} · C ${money(b.c)}`;};
           scroll.onclick=e=>{const target=e.target.closest?.('[data-bar]');if(target)show(Number(target.dataset.bar));};
           scroll.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){const target=e.target.closest?.('[data-bar]');if(target){e.preventDefault();show(Number(target.dataset.bar));}}};
           show(ohlc.length-1);status.textContent=`${timeframe===60?'1 hour':timeframe+' minutes'} · ${ohlc.length} candles · Synthetic · Tap a candle for prices. Latest candle outlined in gold.`;
           controls.forEach(([size,b])=>{b.setAttribute('aria-pressed',size===timeframe?'true':'false');b.className='chip'+(size===timeframe?' on':'');});scroll.scrollLeft=w;
         }
-        for(const [size,label] of [[1,'1 minute'],[5,'5 minutes'],[10,'10 minutes'],[60,'1 hour']]){const b=action(label,()=>{timeframe=size;paint();});controls.push([size,b]);toolbar.append(b);}
+        for(const [size,label] of [[1,'1 minute'],[5,'5 minutes'],[10,'10 minutes'],[15,'15 minutes'],[60,'1 hour']]){const b=action(label,()=>{timeframe=size;paint();});controls.push([size,b]);toolbar.append(b);}
         const zoom=action('Explore candles',()=>{fit=!fit;zoom.textContent=fit?'Explore candles':'Fit full setup';paint();});toolbar.append(zoom);
         figure.append(toolbar,scroll,readout,status);
+        if(chapter===2)figure.append(el('small',round<2?'Gold dot: the earlier pullback that led to the latest swing high. Shading: the price zone around that low.':'Shading: the price zone containing the latest cluster of candles.','chartCaption'));
         if(generic)figure.append(el('small',bitcoin?'Hypothetical BTC/USD risk example.':'Hypothetical $100 unit-price example.'));
         paint();return figure;
       }
       function setupHelp(chapter,round){
         const help=el('details',undefined,'chartHelp');help.append(el('summary','Explain this setup'));
         const text=chapter===1&&round===1?'The candle outlined in gold is the latest candle. That is the red candle this question refers to. Other red candles earlier in the chart are normal; we are not saying the whole chart has only one. Compare the latest candle’s low with the dashed Previous swing low line. Has that earlier turning point actually broken?':chapter===1?'Look from left to right for turning points. An uptrend steps toward higher highs and higher lows; a downtrend steps lower. Consolidation repeatedly returns to the same zone. A red candle only means it closed below its own open; it does not by itself tell you the trend.':chapter===2?'A swing low is a local turning point where price stopped falling and turned upward. Compare the current price with the marked earlier low when one is shown. A pullback can contain several red candles without breaking the wider structure.':chapter===3?'The marked entry and stop are a hypothetical unit-price example. The distance between them is planned risk per unit. Open, high, low and close are shown when you tap a candle; the chart does not guarantee execution at the stop.':chapter===4?'Start with the setup conditions in the question. The chart illustrates the price structure, but movement alone does not tell you to enter. Ask what would confirm your idea and what would invalidate it.':chapter===5?'The gold line marks the planned decision level where one is relevant. Review what was known at that point, not what later price movement makes tempting in hindsight.':'Each bar is a simulated trade outcome in R, not a price candle. Add gains and losses, then review whether the decisions followed the plan.';
+        if(chapter===1 && round===0) help.append(el('p','Wick tips show the high and low. Look for higher highs and higher lows in an uptrend, or lower lows and lower highs in a downtrend.'));
+        if(chapter===2) help.append(
+          el('h3','Swing points and market zones'),
+          el('p','A swing low is a trough with a decline into it and a rally away from it. A swing high is a peak with the opposite sequence. Smaller turns can appear inside either leg, especially on a shorter timeframe.'),
+          el('p',round<2?'Start at the latest major peak and look left to the pullback that launched the move into it. The gold dot marks that trough. An older or smaller low can still be a swing low on another timeframe.':'The shaded market zone covers a cluster of recent highs and lows. Watch for price to move beyond the area and hold there. A single wick outside the zone gives less evidence.'),
+          el('p','A zone spans a range of prices. The dashed line, when shown, marks the exact wick low used as the checkpoint reference.'));
         help.append(el('p',text),el('p','Timeframe controls combine the same minute-by-minute teaching data into different candles. A longer candle can hide the smaller moves inside it. Use Fit full setup to restore the whole view after exploring.'));
         return help;
       }
       function skillMission(key,chapter){
+        if(dailyMode() && todayReport()){dailyReport(todayReport());return;}
+        const baseline=ST.learning?.evidence?.[key]?.[chapter]?.firstCorrect??0;
         const m=MARKETS[key];
         const lessons={
-          1:{intro:'A trend is a sequence of turning points. Read the whole structure rather than reacting to the latest candle.',questions:[
-            ['Follow the swing highs and lows on the chart. What does this structure suggest?',['Uptrend','Downtrend','Consolidation','No evidence'],0,'Both the highs and lows are stepping upward. This describes structure; it does not guarantee the next move.'],
+          1:{intro:'Higher highs and higher lows describe an uptrend. Lower lows and lower highs describe a downtrend. Compare the swing points across the whole setup.',questions:[
+            ['Follow the swing highs and lows on the chart. What does this structure suggest?',['Uptrend','Downtrend','Consolidation','No evidence'],0,'The chart makes higher highs and higher lows. Mixed candle colors, different body sizes, and long wicks can all appear within that structure.'],
             ['Look at the latest candle outlined in gold and the dashed Previous swing low. The candle closes lower but stays above that earlier low. Does this alone confirm a downtrend?',['Yes — a downtrend is confirmed','No — the marked swing low still holds','Yes — every red candle reverses the trend'],1,'We mean the latest outlined candle, not the total number of red candles. Its low remains above the marked earlier swing low. That alone does not establish a downtrend.'],
             ['Highs and lows overlap repeatedly inside the same zone. What is the most defensible label?',['Consolidation','Guaranteed breakout','Strong downtrend'],0,'Repeated overlap without sustained directional progress suggests a range.']
           ]},
           2:{intro:'A pullback is a counter-move within a trend. Distinguish it from a break in structure, and leave room for uncertainty.',questions:[
-            ['Price trends upward, retreats shallowly, and holds above its prior swing low. Which interpretation fits the evidence?',['Possible pullback','Certain reversal','Guaranteed continuation'],0,'Holding the prior swing low is consistent with a pullback. Continuation still needs evidence.'],
-            ['Price falls through the prior swing low after an uptrend. What should you do with your original read?',['Ignore it','Reassess the structure','Double the position'],1,'A broken swing low challenges the original structure. Reassess rather than defend the earlier interpretation.'],
-            ['The candles compress near a high without a clear break either way. What is a disciplined response?',['Wait for clearer evidence','Assume a breakout','Assume a crash'],0,'Compression alone does not establish the next direction. Waiting preserves your ability to act on better evidence.']
+            ['Compare the latest move with the marked swing low. Which interpretation fits the chart?',['Possible pullback','Certain reversal','Guaranteed continuation'],0,'Holding the prior swing low is consistent with a pullback. Continuation still needs evidence.'],
+            ['Trace the rally from the gold dot, then compare the latest candles with the marked low. What should you do with your original read?',['Ignore it','Reassess the structure','Double the position'],1,'The latest move crossed below the swing low that launched the last rally. That challenges the uptrend. Look for lower lows and lower highs before calling a new downtrend.'],
+            ['Read the latest candles against both edges of the shaded zone. What is a disciplined response?',['Wait for clearer evidence','Assume a breakout','Assume a crash'],0,'Compression alone does not establish the next direction. Look for price to move beyond the zone and hold there.']
           ]},
           3:{intro:'Define risk before an entry. In these simplified exercises, 1R is the planned loss if a stop is filled as intended. Real fills can differ.',questions:[
             ['A simulated long entry is $100 with a stop at $98. What is the planned price risk per unit, before costs?',['$2','$98','$100'],0,'Entry minus stop is $2 per unit. Position size determines the planned dollar risk.'],
@@ -2898,20 +3102,38 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
           ]}
         };
         const lesson=(key==='bitcoin'?bitcoinLessons:lessons)[chapter];let round=0;
+        const attempts=ST.learning?.evidence?.[key]?.[chapter]?.attempts??0;
+        const total=dailyMode()?DAILY_QUESTIONS:3;
+        const replay=Math.floor(attempts/total);
+        const variant=chapter===2 && replay ? 1+(replay-1)%2 : 0;
+        const replayPullbacks=[
+          ['Where is the latest downswing relative to the low that launched the last rally?', ['The low is still intact','The low has been broken','The close guarantees a new high'],0,'Price stayed above the marked low. That leaves a pullback possible. Look for evidence that the rally is resuming.'],
+          ['An older low remains visible to the left. Which swing should you check first when testing the latest rally?', ['The oldest low on screen','The trough that launched the rally into the latest swing high','The lowest wick on any timeframe'],1,'Start with the trough that launched the rally you are evaluating. Breaking it weakens that structure even when an older low remains intact.'],
+          ['What evidence would help distinguish a breakout from another turn inside the shaded area?', ['Price moves outside the zone and holds beyond it','Price touches the middle of the zone','A single wick pokes outside'],0,'Acceptance beyond a zone gives more evidence than a brief excursion.']
+        ];
+        const replayZones=[
+          ['What would weaken the pullback interpretation shown here?', ['A break of the trough that launched the last swing high','One down candle anywhere on the chart','A wick above the latest close'],0,'The marked trough is the structural reference. Individual candle colors alone do not establish a break.'],
+          ['Which observation matters most for reassessing the uptrend here?', ['The latest move crossed the trough that led to the last swing high','The chart still contains older lows','The last rally had mixed candle colors'],0,'Price traded below the marked trough. Check how subsequent swing highs and lows develop.'],
+          ['The latest candles keep returning to the shaded range. What does that tell you?', ['Price is still trading within a zone','The next breakout direction is known','Every touch confirms support'],0,'Repeated trading within the area describes compression. A trend needs sustained directional progress.']
+        ];
         function frame(){home.replaceChildren(el('div',`GXB / ${m.name.toUpperCase()} / SKILL ${chapter+1}`,'eyebrow'),action('← My journey',showHome),el('h1',PATH[chapter]));window.scrollTo(0,0);}
         function draw(){
           frame();
-          home.append(el('p',lesson.intro),el('small',`Guided checkpoint ${round+1} of ${lesson.questions.length} · synthetic teaching examples`,'checkpointLabel'));
-          const [prompt,answers,correct,why]=lesson.questions[round];
+          home.append(el('p',lesson.intro),el('small',`Guided checkpoint ${round+1} of ${total} · synthetic teaching examples`,'checkpointLabel'));
+          const scenario=variant===1?[1,0,2][round]:round;
+          const questions=variant===1?replayPullbacks:variant===2?replayZones:lesson.questions;
+          const [prompt,answers,correct,why]=questions[scenario];
+          const shift=replay ? (replay+scenario)%answers.length : 0;
+          const choices=[...answers.slice(shift),...answers.slice(0,shift)];
           const card=el('section',undefined,'homeCard'),feedback=el('p','','missionFeedback');
           feedback.setAttribute('aria-live','polite');
-          const guide=adaptiveChoices({market:key,chapter,question:round,prompt,answers,correct,why,feedback,
-            advance:()=>{round++;if(round<lesson.questions.length)draw();else finish();},
-            finished:round<lesson.questions.length-1?'Next checkpoint →':'Finish skill →'});
-          card.append(checkpointLayout(skillChart(m,chapter,round),guide,setupHelp(chapter,round)));
+          const guide=adaptiveChoices({market:key,chapter,question:scenario,checkpointIndex:round,total,prompt,answers:choices,correct:(correct-shift+answers.length)%answers.length,why,feedback,
+            advance:()=>{round++;if(round<lesson.questions.length)draw();else if(dailyMode())showApplications(key,chapter,attempts,finish);else finish();},
+            finished:round<lesson.questions.length-1?'Next checkpoint →':dailyMode()?'Next question →':'Finish skill →'});
+          card.append(checkpointLayout(skillChart(m,chapter,scenario,variant),guide,setupHelp(chapter,scenario)));
           home.append(card);
         }
-        function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter)){j.skills[key].push(chapter);j.skillDates??={};j.skillDates[key]??={};j.skillDates[key][chapter]=new Date().toISOString();}saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
+        function finish(){const j=journeyState();if(!j.skills)j.skills={};if(!Array.isArray(j.skills[key]))j.skills[key]=[];if(!j.skills[key].includes(chapter)){j.skills[key].push(chapter);j.skillDates??={};j.skillDates[key]??={};j.skillDates[key][chapter]=new Date().toISOString();}if(dailyMode()){finishDaily(key,chapter,baseline);return;}saveState(ST);frame();home.append(el('p','Skill complete. Keep exploring while the ideas are fresh, or return whenever you are ready. Guided completion stays separate from scored Arena results.'));if(chapter<PATH.length-1)home.append(action(`Continue: ${PATH[chapter+1]} →`,()=>skillMission(key,chapter+1),true));else home.append(action('Continue in Free Practice →',train,true),action('Explore another market →',chooseMarket));home.append(action('Return to my journey →',showHome));}
         draw();
       }
       function profiles(){

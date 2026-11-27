@@ -73,7 +73,16 @@ async function run() {
     await frame.getByRole('heading', { name: /Gold journey/ }).waitFor();
     assert.equal(await frame.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
     await page.getByRole('link', { name: 'Free Practice', exact: true }).tap();
-    await page.frameLocator('iframe[title="Free Practice training"]').getByRole('heading', { name: 'ICC Practice Arena' }).waitFor();
+    const practice = page.frameLocator('iframe[title="Free Practice training"]');
+    await practice.getByRole('heading', { name: 'ICC Practice Arena' }).waitFor();
+    assert.equal(await page.getByRole('region', { name: 'GXB AI' }).count(), 0);
+    const info = practice.getByLabel('Practice information');
+    const academy = practice.getByRole('link', { name: 'Return to your Academy journey' });
+    assert.equal(await academy.isVisible(), false);
+    await info.tap();
+    await academy.waitFor();
+    await info.tap();
+    assert.equal(await academy.isVisible(), false);
     assert.equal(await fits(), true);
     assert.deepEqual(errors, []);
     console.log('PASS: iPhone-size touch crosshair, accessible bracket ticket, no horizontal chart scroll, Academy and ICC at 320–390px.');

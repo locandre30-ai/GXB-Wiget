@@ -1,4 +1,4 @@
-import { ARCHIVES, KNOWLEDGE, REFLECTIONS } from './study-content.mjs';
+import { ARCHIVES, KNOWLEDGE, REFLECTIONS } from './study-content.mjs?v=swings-1';
 import { CATEGORIES, cleanVideo, DRILLS, LESSONS, LEVELS, touchStudy, VIDEO_MARKETS, youtubeId } from './study-store.mjs?v=save-1';
 
 export const STUDY_SECTIONS = {

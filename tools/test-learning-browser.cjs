@@ -28,7 +28,7 @@ async function run() {
     await page.getByRole('link', { name: 'Academy', exact: true }).click();
     await page.getByRole('link', { name: /^Cryptocurrency/ }).click();
     const frame = page.frameLocator('iframe[title="Academy lesson workspace"]');
-    const guide = frame.getByRole('region', { name: 'GxB Academy Guide' });
+    const guide = frame.getByRole('region', { name: 'GXB AI' });
     await guide.getByText(/Hey, welcome to the Academy/).waitFor();
     assert.equal(await guide.getByLabel('Market check-in').isVisible(), false);
     await guide.getByText('Quick check-in', { exact: true }).click();
@@ -51,13 +51,14 @@ async function run() {
     assert.doesNotMatch(prompt, /interested in longer-term investing/);
     assert.match(prompt, /Fear of missing out/);
     assert.match(prompt, /example\.com\/market-research/);
-    await frame.getByRole('button', { name: 'Define risk · Begin' }).click();
+    await frame.getByRole('button', { name: /4\. Define risk/ }).click();
     await guide.getByRole('heading', { name: /practice BTC long/ }).waitFor();
     await frame.getByRole('button', { name: '$50', exact: true }).click();
     await frame.getByRole('heading', { name: 'Quick follow-up' }).waitFor();
     await frame.getByRole('button', { name: 'The stop distance and the position size' }).click();
     await frame.getByText(/Use that idea to try/).waitFor();
     await frame.getByRole('button', { name: '$500', exact: true }).click();
+    await guide.getByText(/You found it after revisiting the evidence.*Checkpoint 1 of 10 complete/).waitFor();
     await frame.getByText('Apply this to a longer holding period').waitFor();
     await frame.getByText('Practice a decision based on your check-in').click();
     await frame.getByRole('button', { name: 'Wait for the trigger or skip the trade' }).click();
@@ -73,7 +74,7 @@ async function run() {
     await guide.getByText('What should I revisit?').click();
     await guide.getByText('Your first answers on this track suggest revisiting this skill.').waitFor();
     await page.getByRole('link', { name: /^Gold/ }).click();
-    await frame.getByRole('button', { name: 'Define risk · Begin' }).click();
+    await frame.getByRole('button', { name: /4\. Define risk/ }).click();
     await frame.getByRole('heading', { name: /simulated long entry is \$100/ }).waitFor();
     const desktop = await guide.locator('.guideAvatar').boundingBox();
     assert.ok(desktop && desktop.width > 40);

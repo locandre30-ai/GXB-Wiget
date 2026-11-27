@@ -243,6 +243,10 @@ a.academy-track-card:hover, .academy-directory-card:hover { border-color: var(--
 .academy-quote { margin: 0 0 .65rem; color: var(--ink); font: italic clamp(1rem,1.65vw,1.25rem)/1.45 Georgia,serif; overflow-wrap: anywhere; }
 .academy-quote::before { content: "“"; color: var(--gold); }
 .academy-quote::after { content: "”"; color: var(--gold); }
+.workspace-guide { margin-block: 8px; border-inline-start: 2px solid var(--gold); }
+.workspace-guide-identity { display: flex; align-items: center; gap: 8px; color: var(--gold); }
+.workspace-guide > p { margin: .25rem 0; }
+.guide-link { display: inline-block; padding-block: .25rem; }
 
 .studio-week .actions { align-items: end; }
 .studio-week > p:empty { display: none; }

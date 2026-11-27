@@ -1,6 +1,6 @@
 import { cleanPortfolio } from './portfolio.mjs';
 import { cleanStudy } from './study-store.mjs';
-import { cleanLearning } from './learning.mjs';
+import { cleanLearning } from './learning.mjs?v=daily-10';
 import { cleanOrder, cleanWatch } from './workspace.mjs';
 export const KEY = 'gxb_arena_v2_r1';
 export const LEGACY_BOOK = 'gxb_arena_profiles_v1';

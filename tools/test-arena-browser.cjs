@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { dailyApplications } = require('../arena/learning.mjs');
 
 const base = 'http://127.0.0.1:8766';
 const key = 'gxb_arena_v2_r1';
@@ -55,19 +56,49 @@ async function run() {
     const lesson = page.frameLocator('iframe[title="Academy lesson workspace"]');
     await lesson.getByRole('heading', { name: /Gold journey/ }).waitFor();
     await screenshot('03-academy');
-    await lesson.getByRole('button', { name: 'Read the trend · Begin' }).click();
+    await lesson.getByRole('button', { name: 'Start today: Read the trend →' }).click();
     await lesson.getByRole('heading', { name: 'Read the trend' }).waitFor();
     await lesson.getByRole('button', { name: 'Uptrend', exact: true }).click();
     await lesson.getByRole('button', { name: 'Next checkpoint →' }).click();
     await lesson.getByRole('button', { name: /the marked swing low still holds/ }).click();
     await lesson.getByRole('button', { name: 'Next checkpoint →' }).click();
     await lesson.getByRole('button', { name: 'Consolidation', exact: true }).click();
-    await lesson.getByRole('button', { name: 'Finish skill →' }).click();
+    await lesson.getByRole('button', { name: 'Next question →' }).click();
+    assert.equal(await lesson.getByRole('button', { name: 'Reinforce in Free Practice →' }).count(), 0);
+    const applications = dailyApplications(1,0);
+    for (const [index, [, answer]] of applications.slice(0,7).entries()) {
+      await lesson.getByText('Question ' + (index+4) + ' of 10', { exact: true }).waitFor();
+      await lesson.getByRole('button', { name: answer, exact: true }).click();
+      await lesson.getByRole('button', { name: index < 6 ? 'Next question →' : 'Finish today’s session →' }).click();
+    }
+    await lesson.getByRole('heading', { name: 'Today’s Academy report' }).waitFor();
+    await lesson.getByRole('region', { name: 'GXB AI' }).getByText(/You finished your first logged Academy session/).waitFor();
+    await lesson.getByText('10 questions completed · 10 of 10 first answers correct without a hint').waitFor();
+    await lesson.getByRole('button', { name: 'Continue in Academy · 2 bonus questions' }).click();
+    for (const [index, [, answer]] of applications.slice(7).entries()) {
+      await lesson.getByText('Bonus question ' + (index+1) + ' of 2', { exact: true }).waitFor();
+      await lesson.getByRole('button', { name: answer, exact: true }).click();
+      await lesson.getByRole('button', { name: index===0 ? 'Next question →' : 'Back to today’s report →' }).click();
+    }
+    await lesson.getByText('10 questions completed · 10 of 10 first answers correct without a hint').waitFor();
+    await page.reload();
+    await lesson.getByRole('button', { name: 'View today’s report →' }).click();
+    await page.goto(base+'/arena.html#academy/bitcoin/0');
+    await lesson.getByRole('heading', { name: 'Today’s Academy report' }).waitFor();
+    await page.goto(base+'/arena.html#academy/gold/1');
+    await lesson.getByRole('heading', { name: 'Today’s Academy report' }).waitFor();
+    await lesson.getByRole('button', { name: 'Reinforce in Free Practice →' }).click();
+    await page.getByText('Today’s reinforcement · Trend Confirmation').waitFor();
+    await page.getByRole('link', { name: 'Open Gold market chart on TradingView' }).waitFor();
+    await page.frameLocator('iframe[title="Free Practice training"]')
+      .getByRole('button', { name: 'Trend Confirmation', pressed: true }).waitFor();
     await page.getByRole('link', { name: 'Command Center', exact: true }).click();
     await page.getByText('2 / 7', { exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Open Free Practice' }).click();
+    await page.getByRole('link', { name: 'Resume practice draft' }).click();
     const drill = page.frameLocator('iframe[title="Free Practice training"]');
     await drill.locator('#answers button').first().waitFor();
+    await drill.locator('.practice-question-bubble').getByText('GXB AI', { exact: true }).waitFor();
+    await drill.locator('.practice-question-bubble #prompt').getByText('Trend Confirmation:', { exact: true }).waitFor();
     assert.equal(await drill.locator('canvas#chart').evaluate(canvas => canvas.width > 0), true);
     await drill.getByRole('button', { name: '15m', exact: true }).click();
     assert.equal(await drill.getByRole('button', { name: '15m', exact: true }).getAttribute('aria-pressed'), 'true');
@@ -127,6 +158,16 @@ async function run() {
     assert.ok(scaled.range < zoomed.range);
     await drill.getByRole('button', { name: 'Reset chart scale' }).click();
     assert.deepEqual(await axes(), fitted);
+    await practiceChart.evaluate(canvas => {
+      const rect = canvas.getBoundingClientRect();
+      for (let step = 0; step < 3; step++) {
+        canvas.dispatchEvent(new WheelEvent('wheel', {
+          clientX: rect.left + (rect.width-62)/2, clientY: rect.bottom-12, deltaY: 240, cancelable: true,
+        }));
+      }
+    });
+    assert.notDeepEqual((await axes()).times.slice(0,-1), fitted.times, 'Time axis can expand beyond fitted candles');
+    await drill.getByRole('button', { name: 'Reset chart scale' }).click();
     assert.equal(await drill.getByRole('group', { name: 'Drill replay' }).isVisible(), false);
     await screenshot('04-practice-handoff');
     const glossary = drill.getByRole('button', { name: 'dotted word' });
@@ -164,6 +205,7 @@ async function run() {
     await page.waitForFunction(key => JSON.parse(localStorage.getItem(key)).profiles.king.state.draft.session.results.length === 10, key);
     await page.reload();
     await drill.getByRole('button', { name: 'See Session Results' }).click();
+    await drill.locator('#practiceGuide').getByText(/GXB AI · You finished.*Free Practice session/).waitFor();
     await drill.getByRole('button', { name: 'Copy Session Log' }).click();
     const sessionLog = await drill.locator('#logBox').inputValue();
     assert.match(sessionLog, /Status: Completed/);

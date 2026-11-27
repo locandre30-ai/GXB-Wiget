@@ -1,4 +1,4 @@
-import { cleanActivity } from './activity.mjs';
+import { cleanActivity } from './activity.mjs?v=daily-10';
 export const assessmentFields = {
   goal: ['Learn the basics', 'Practice day trades', 'Study longer-term entries'],
   experience: ['New to charts', 'Some chart practice', 'Regular practice'],
@@ -6,6 +6,90 @@ export const assessmentFields = {
 };
 const tracks = ['gold', 'bitcoin'];
 const paperActions = ['long', 'short', 'cancel', 'exit'];
+export const GUIDE_NAME = 'GXB AI';
+export const DAILY_QUESTIONS = 10;
+export const reinforcementDrills = ['Trend Confirmation', 'Trend Confirmation', 'Continuation Recognition',
+  'Entries', 'Entries', 'Exits', 'Avoiding Chase Trades'];
+export const marketObservation = [
+  'Label the structure you see: uptrend, downtrend, or range. Identify two turning points that support your read.',
+  'Compare two swing highs and two swing lows. Then zoom out and see whether the broader structure agrees.',
+  'Find a pullback. Mark the trough that launched the last rally and check whether price held or crossed it.',
+  'Identify a hypothetical entry and invalidation level. Measure the distance per unit before considering size.',
+  'Name a possible entry trigger and decide what would invalidate it. Check whether the trigger has actually happened.',
+  'Choose an example exit rule and identify where the chart would have given you evidence to act.',
+  'Write down one decision rule from today and find a setup where you would apply it or stand aside.'
+];
+
+const skillApplications = [
+  [
+    ['Two candles close higher, but the last two swing highs are lower. What has the stronger claim on your trend read?', 'The sequence of swing points', 'The two candle colors', 'The latest opening price', 'Individual candles can move against the broader structure.'],
+    ['Price repeatedly turns near the same upper and lower areas. What would you label first?', 'A range', 'A confirmed uptrend', 'A guaranteed breakdown', 'Repeated turns without sustained progress describe a range.']
+  ],
+  [
+    ['A rally sets a higher high. The next pullback undercuts the previous swing low. How should you describe the structure?', 'Mixed structure that needs more evidence', 'A clean uptrend', 'A confirmed downtrend', 'Higher highs and lower lows do not form a clean directional sequence.'],
+    ['The last peak is lower and the next trough is lower. What do those two observations support?', 'A downtrend read', 'A confirmed upside reversal', 'Direction based on candle color alone', 'Lower lows and lower highs support a downtrend read.']
+  ],
+  [
+    ['Price dips into a support zone and closes back inside it. What is still useful to watch?', 'Whether later candles hold or break the zone', 'Whether the first wick guaranteed a reversal', 'Whether the opening price was a round number', 'A test of a zone gives evidence. Follow-through helps clarify it.'],
+    ['Two troughs are visible. Which one is the useful starting reference for the latest rally?', 'The trough that launched that rally', 'Always the oldest trough', 'Always the lowest wick on the screen', 'Match the swing reference to the move and timeframe you are evaluating.']
+  ],
+  [
+    ['The planned stop distance doubles and the risk budget is unchanged. What happens to planned size before costs?', 'It halves', 'It doubles', 'It stays the same', 'Planned risk is stop distance multiplied by position size.'],
+    ['Price gaps through the planned stop. Why can the realized loss exceed the plan?', 'The next available fill can be worse', 'A stop guarantees its trigger price', 'Only position direction matters', 'A trigger and an execution price can differ.']
+  ],
+  [
+    ['Your plan requires a close beyond a zone. So far only a wick went beyond it. What follows the plan?', 'Wait for the required close', 'Enter on the wick', 'Remove the trigger', 'The planned event has not happened yet.'],
+    ['The setup meets your trigger, but you cannot name an invalidation point. What is missing?', 'A condition that would disprove the trade idea', 'A more exciting target', 'A larger position', 'The plan needs an observable condition for being wrong.']
+  ],
+  [
+    ['Price reaches your preplanned exit condition, then bounces. Which information should guide your original decision?', 'The rule and evidence visible at the exit', 'The later bounce', 'The next session’s open', 'Evaluate decisions using information available at the time.'],
+    ['You feel tempted to move the stop farther away after entry. What should you check first?', 'Whether the written plan ever permitted that change', 'Whether hoping feels justified', 'Whether the last candle was small', 'Compare changes with the management rules you chose before entry.']
+  ],
+  [
+    ['Two trades made the same profit. One ignored the plan. How should you compare them?', 'Review process and outcome separately', 'Rate them equally by profit alone', 'Ignore both decisions', 'Similar outcomes can come from very different decisions.'],
+    ['Which journal entry gives you something concrete to test tomorrow?', 'Wait for a close above the zone before considering entry', 'Make more money', 'Always trust my first impulse', 'A repeatable rule can be tested on a new setup.']
+  ]
+];
+
+const transferQuestions = [
+  ['Why compare more than one timeframe before finalizing a read?', 'To see how the local move fits the broader structure', 'To find whichever view agrees with me', 'To make the next candle predictable', 'Different scales show different parts of the same move.'],
+  ['Which part of a candle shows its highest and lowest traded prices?', 'The wick tips', 'The body midpoint', 'The color alone', 'The body gives the open and close. The wick tips show the range.'],
+  ['A setup looks promising. What makes the decision testable?', 'An observable trigger and a condition that would invalidate it', 'Confidence in the outcome', 'A popular ticker', 'A testable plan states what must happen and what would make the idea wrong.'],
+  ['What is the useful response when the chart evidence conflicts?', 'Name what is unclear and wait for more evidence', 'Force a direction', 'Increase the planned size', 'Standing aside gives you room to reassess.'],
+  ['When reviewing a setup, which detail should be written before seeing the outcome?', 'What I saw and the decision rule I used', 'The final profit', 'The next swing high', 'Recording your reasoning early helps reduce hindsight bias.'],
+  ['Why can two learners make reasonable reads of the same chart?', 'They may be evaluating different timeframes or decision rules', 'Price always has two guaranteed directions', 'Only one candle can be viewed', 'Make the timeframe and the decision rule explicit before comparing interpretations.'],
+  ['A clue helped you answer correctly. What would test whether the skill transferred?', 'Explain your reasoning on a different setup without the clue', 'Repeat the same answer from memory', 'Skip the topic permanently', 'A fresh setup tests recognition instead of recall.'],
+  ['You are eager to act after a fast candle. What is a useful pause?', 'Check whether the written trigger happened', 'Treat speed as confirmation', 'Widen the risk limit', 'The written rule gives you something observable to check.'],
+  ['Which is the better evidence that price is holding beyond a zone?', 'Price stays beyond its edge over subsequent candles', 'A single wick extends past it', 'The zone has a round-number label', 'Follow-through provides more context than a brief excursion.']
+];
+
+export function dailyApplications(chapter, attempts) {
+  const start = Math.floor(attempts / DAILY_QUESTIONS) % transferQuestions.length;
+  const rotated = [...transferQuestions.slice(start), ...transferQuestions.slice(0,start)];
+  return [...skillApplications[chapter], ...rotated.slice(0,7)];
+}
+
+export function academyDay(date = new Date()) {
+  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+}
+
+function cleanDailyReports(raw) {
+  const byDay = new Map();
+  for (const row of Array.isArray(raw) ? raw.slice(-366) : []) {
+    const total = row?.total === DAILY_QUESTIONS ? DAILY_QUESTIONS : 3;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row?.day ?? '') || !tracks.includes(row.market) ||
+        !Number.isInteger(row.chapter) || row.chapter < 0 || row.chapter > 6 ||
+        !Number.isInteger(row.independent) || row.independent < 0 || row.independent > total) continue;
+    byDay.set(row.day, { day: row.day, market: row.market, chapter: row.chapter, independent: row.independent, total });
+  }
+  return [...byDay.values()].sort((a,b) => a.day.localeCompare(b.day));
+}
+
+export function academyGrowth(learning) {
+  const days = learning?.daily?.length ?? 0;
+  const level = days >= 14 ? 'Level 3 · Practiced' : days >= 4 ? 'Level 2 · Novice' : 'Level 1 · Beginner';
+  return { days, level };
+}
 
 export function cleanLearning(raw) {
   const assessment = raw?.assessment;
@@ -26,7 +110,7 @@ export function cleanLearning(raw) {
     const value = raw?.paper?.[action];
     if (Number.isSafeInteger(value) && value > 0 && value <= 100000) paper[action] = value;
   }
-  return { activity: cleanActivity(raw?.activity), introduction: cleanIntroduction(raw?.introduction), paper, assessment: valid ? Object.fromEntries(Object.keys(assessmentFields).map(key => [key, assessment[key]])) : null, evidence };
+  return { activity: cleanActivity(raw?.activity), introduction: cleanIntroduction(raw?.introduction), paper, assessment: valid ? Object.fromEntries(Object.keys(assessmentFields).map(key => [key, assessment[key]])) : null, evidence, daily: cleanDailyReports(raw?.daily) };
 }
 
 export function recordCheckpoint(state, market, chapter, correct) {
@@ -82,13 +166,13 @@ export const bitcoinReads = [
 
 export const bitcoinLessons = {
   1: { intro: 'BTC venues can print different prices. Read structure on one consistent quote feed before comparing markets.', questions: [
-    ['BTC/USD makes a higher swing low after a higher swing high. Which evidence matters most?', ['The sequence of swing points', 'The newest candle color alone', 'The exact same price on all venues'], 0, 'The sequence of higher turning points establishes the structure on the chart you are reading.'],
-    ['A BTC candle closes below its own open. The prior swing low remains intact. Which observation would strengthen a reversal case?', ['Another exchange has a slightly different price', 'A break followed by lower swing structure', 'The last candle was red'], 1, 'A break of the marked low followed by lower structure would provide more evidence.'],
+    ['BTC/USD makes a higher swing low after a higher swing high. Which evidence matters most?', ['The sequence of swing points', 'The newest candle color alone', 'The exact same price on all venues'], 0, 'Higher highs and higher lows describe the uptrend on this quote feed. Compare wick tips at the swing points.'],
+    ['A BTC candle closes below its own open. The prior swing low remains intact. Which observation would strengthen a reversal case?', ['Another exchange has a slightly different price', 'A break followed by lower swing structure', 'The last candle was red'], 1, 'A break of the marked low followed by lower lows and lower highs would provide more evidence.'],
     ['BTC bounces repeatedly inside the same zone. What should you wait for before calling this a trend?', ['Sustained progress beyond the range', 'Any wick past the midpoint', 'A round-number price'], 0, 'Look for price to make and hold directional progress beyond the overlap.']
   ] },
   2: { intro: 'Fast price changes can make BTC pullbacks look dramatic. Check which prior level actually gave way.', questions: [
-    ['On this BTC rebound, sellers retrace part of the rise and the prior low holds. What remains open?', ['The rise may resume, but needs confirmation', 'A crash has already been confirmed', 'Every lower close invalidates the setup'], 0, 'A retracement with intact structure leaves continuation possible, with no guarantee.'],
-    ['The marked BTC swing low fails. Which note should you write before planning your next trade?', ['This break challenges my long thesis', 'Increase exposure because price is cheaper', 'Delete the level because it failed'], 0, 'The failed level changes the premise. Reassess the structure with fresh evidence.'],
+    ['Compare the BTC downswing with the trough marked in gold. What remains open?', ['The rise may resume, but needs confirmation', 'A crash has already been confirmed', 'Every lower close invalidates the setup'], 0, 'A retracement with intact structure leaves continuation possible, with no guarantee.'],
+    ['Trace the BTC rally from the gold dot. Compare the latest candles with that low. Which note belongs in your plan?', ['This break challenges my long thesis', 'Increase exposure because price is cheaper', 'Delete the level because it failed'], 0, 'Price fell below the trough that launched the latest rally. Reassess that leg and watch for lower lows and lower highs.'],
     ['BTC compresses near its high. What would distinguish an actual break from a brief spike?', ['A social post mentions the symbol', 'Price holds beyond the level on your chosen timeframe', 'A single fast wick'], 1, 'A sustained move on the timeframe you planned gives more evidence than a momentary spike.']
   ] },
   3: { intro: 'BTC can trade in fractions. Define risk in dollars per BTC and size in BTC, then account for execution.', questions: [
