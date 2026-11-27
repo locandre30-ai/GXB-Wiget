@@ -22,7 +22,6 @@ async function run() {
   });
   try {
     const context = await browser.newContext({ viewport: { width: 1360, height: 960 }, reducedMotion: 'reduce' });
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     const page = await context.newPage();
     page.setDefaultTimeout(8000);
     const errors = [];
@@ -206,12 +205,11 @@ async function run() {
     await page.reload();
     await drill.getByRole('button', { name: 'See Session Results' }).click();
     await drill.locator('#practiceGuide').getByText(/GXB AI · You finished.*Free Practice session/).waitFor();
-    await drill.getByRole('button', { name: 'Copy Session Log' }).click();
-    const sessionLog = await drill.locator('#logBox').inputValue();
-    assert.match(sessionLog, /Status: Completed/);
-    await page.waitForFunction(expected => navigator.clipboard.readText().then(text => text === expected), sessionLog);
+    await drill.getByText('Session saved to Performance.', { exact: true }).waitFor();
+    assert.equal(await drill.getByRole('button', { name: 'Copy Session Log' }).isVisible(), false);
     assert.ok((await drill.locator('#kLine').textContent()).trim());
-    await page.getByRole('link', { name: 'Performance', exact: true }).click();
+    await drill.getByRole('button', { name: 'View in Performance' }).click();
+    await page.locator('.record-selected').getByText(/Grade .+ · \d+\/10 correct/).waitFor();
     const snapshot = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), key);
     assert.equal(snapshot.profiles.king.state.history.length, 2);
     assert.equal(snapshot.profiles.king.state.rounds, 20);
@@ -260,7 +258,7 @@ async function run() {
     await drill.getByRole('button', { name: 'Next Chart →' }).waitFor();
     assert.equal(await page.evaluate(key => localStorage.getItem(key), key), beforeGuest);
     assert.deepEqual(await page.evaluate(oldKey => JSON.parse(localStorage.getItem(oldKey)), oldKey), fixture);
-    console.log('PASS: loopback launcher, keyboard skip, fixture migration, Academy completion, draft reload/resume, 10 rounds, copy log, duplicate backup, profiles, guest isolation and legacy write-through.');
+    console.log('PASS: loopback launcher, keyboard skip, fixture migration, Academy completion, draft reload/resume, 10 rounds, automatic Performance logging, duplicate backup, profiles, guest isolation and legacy write-through.');
 
     await page.getByRole('link', { name: 'Switch profile' }).click();
     for (const width of [768, 390]) {

@@ -100,6 +100,7 @@ main > .panel + .panel { margin-top: 12px; }
 .record time { color: var(--muted); }
 .practice-note { margin-bottom: 10px; padding-block: 10px; }
 .practice-note p { margin-bottom: 2px; }
+.record-selected { outline: 2px solid var(--gold); outline-offset: 3px; }
 .training { margin-top: 12px; }
 .availability p { margin: 0; }
 @media (max-width: 660px) {

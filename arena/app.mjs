@@ -284,6 +284,7 @@ window.gxbTraining = {
     const id = snapshot.active;
     return {
       view,
+      guest: guestAtConnect,
       market: element.dataset.market,
       lesson: element.dataset.lesson,
       focus: element.dataset.focus,
@@ -313,7 +314,7 @@ function renderTraining(view, market, lesson, focus) {
   if (/^[0-6]$/.test(lesson ?? "")) frame.dataset.lesson = lesson;
   if (focus) frame.dataset.focus = focus;
   frame.title = view === 'academy' ? 'Academy lesson workspace' : 'Free Practice training';
-  frame.src = './practice.html?v=practice-info-1&view=' + view;
+  frame.src = './practice.html?v=practice-log-1&view=' + view;
   workspace.append(frame);
 }
 
@@ -381,11 +382,11 @@ function recent(state, full = false) {
   const panel = node('section', undefined, 'panel activity');
   panel.append(node('h2', full ? 'Completed session history' : 'Recent training activity'));
   const events = state.history.map(record => ({
+    id: record.id,
     date: record.date,
     title: record.focus,
-    detail: [record.grade, record.correct + '/' + record.rounds + ' correct',
-      record.r === undefined ? '' : (record.r > 0 ? '+' : '') + record.r.toFixed(1) + 'R',
-      record.scoringVersion ? 'Legacy scoring v' + record.scoringVersion : 'Legacy scoring version unrecorded']
+    detail: [record.grade ? 'Grade ' + record.grade : '', record.correct + '/' + record.rounds + ' correct',
+      record.r === undefined ? '' : (record.r > 0 ? '+' : '') + record.r.toFixed(1) + 'R']
       .filter(Boolean).join(' · ')
   }));
   if (!full) {
@@ -404,6 +405,10 @@ function recent(state, full = false) {
   if (!events.length) panel.append(node('p', full ? 'No individual session records are available. Recorded totals are shown separately.' : 'Completed sessions and dated lessons will appear here.'));
   for (const event of full ? events : events.slice(0, 5)) {
     const row = node('article', undefined, 'record');
+    if (full && event.id && location.hash === '#performance/' + encodeURIComponent(event.id)) {
+      row.classList.add('record-selected');
+      row.tabIndex = -1;
+    }
     const date = node('time', new Date(event.date).toLocaleDateString());
     date.dateTime = event.date;
     row.append(node('strong', event.title), date, node('small', event.detail));
@@ -652,9 +657,9 @@ function renderPractice() {
   const report = location.hash === '#practice/daily' && state.learning.daily.find(item => item.day === academyDay());
   const focus = report ? reinforcementDrills[report.chapter] : undefined;
   const panel = node('section', undefined, 'panel practice-note');
-  panel.append(node('p', 'Five synthetic chart drills · 10 rounds · Guided or Pro · Legacy drill scoring'));
-  if (state.draft) panel.append(node('small', 'Resuming saved draft · ' + state.draft.session.results.length + ' of 10 decisions recorded.'));
-  else panel.append(node('small', 'Your session saves as you go. Open Market Studio for local historical replay.'));
+  panel.append(node('p', 'Read 10 simulated charts. Your results go to Performance when you finish.'));
+  if (state.draft?.session.results.length) panel.append(node('small',
+    'Continuing your session · ' + state.draft.session.results.length + ' of 10 answered.'));
   if (report) {
     panel.append(node('p', 'Today’s reinforcement · ' + focus + (state.draft?.session.results.length && state.draft.focus !== focus ? ' · Finish your saved draft or select this drill when ready.' : '')));
     const symbol = report.market === 'bitcoin' ? 'COINBASE:BTCUSD' : 'OANDA:XAUUSD';
@@ -688,7 +693,7 @@ function renderPerformance() {
   if (recentSession) workspace.append(workspaceGuide(
     'Your most recent ' + recentSession.focus + ' session was ' + recentSession.correct + ' of ' + recentSession.rounds +
     ' correct. Review the evidence behind one of those decisions before your next session.', '#practice', 'Open Free Practice').panel);
-  workspace.append(node('p', 'Accuracy, grades and R come from synthetic legacy drills.'), metrics, skills, recent(state, true));
+  workspace.append(node('p', 'Results from simulated Free Practice sessions.'), metrics, recent(state, true), skills);
 }
 
 function render(focus = false) {
@@ -757,7 +762,7 @@ function render(focus = false) {
     update => updateProfile(profile => update(profile.portfolio)));
   if (page === 'performance') renderPerformance();
   status();
-  if (focus) workspace.focus();
+  if (focus) (workspace.querySelector('.record-selected') ?? workspace).focus();
   if (phoneLayout.matches && !navigation.hidden) {
     const strip = navigation.querySelector('.nav-items');
     const currentTab = strip.querySelector('[aria-current="page"]');

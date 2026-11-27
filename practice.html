@@ -701,7 +701,7 @@
 
       <div class="foot">
         <span>GxB · Synthetic drill training</span>
-        <span>Copy completed session logs from results</span>
+        <span>Session history updates when you finish</span>
       </div>
 
       <!-- Glossary bottom sheet -->
@@ -726,6 +726,7 @@
             <div class="sStat"><div class="v" id="gXP">+0</div><div class="k">XP Earned</div></div>
           </div>
           <p class="sNote" id="gNote"></p>
+          <p class="sNote" id="sessionSaveStatus" role="status"></p>
           <p class="sNote" id="practiceGuide" role="status"><span class="gxb-guide-avatar" aria-hidden="true"></span><span id="practiceGuideMessage"></span></p>
           <div class="kingdom" id="kingdom" style="display:none;">
             <span class="kk">👑 Kingdom Note</span>
@@ -734,8 +735,9 @@
           </div>
           <div class="coach" id="coach" style="display:none;"><span class="ck">🧠 Coach read — from your logged reps only</span><ul id="coachList"></ul></div>
           <div class="sBtns">
+            <button class="btn" id="viewPerformance" hidden>View in Performance</button>
             <button class="btn" id="copyLog">Copy Session Log</button>
-            <button class="btn next" id="again">Run It Again</button>
+            <button class="btn next" id="again">Start another session</button>
           </div>
           <textarea class="logbox" id="logBox" readonly aria-label="Session log text"></textarea>
         </div>
@@ -2143,9 +2145,11 @@
       "C":"Building Reps", "D":"Rough Tape — Review It"
     };
 
-    function finishSession(){
+    async function finishSession(){
       if(SES.completed) return;
       SES.completed = true;
+      const completed = SES;
+      const inArena = embedded === "practice";
       const acc = Math.round(100*SES.correct/ROUNDS_PER_SESSION);
       const grade = gradeFor(acc);
       const mins = Math.max(1, Math.round((Date.now()-SES.start)/60000));
@@ -2165,7 +2169,6 @@
         scored:SES.results.filter(r=>r.r !== null).length, scoringVersion:2});
       ST.bestCombo = Math.max(ST.bestCombo, SES.bestCombo);
       delete ST.draft;
-      saveState(ST);
       paintMeters();
 
       $("gGrade").textContent = grade;
@@ -2174,12 +2177,15 @@
       $("gR").textContent = (SES.rTotal>0?"+":"") + SES.rTotal.toFixed(1);
       $("gCombo").textContent = "x" + SES.bestCombo;
       $("gXP").textContent = "+" + SES.xpGained;
-      $("gNote").textContent = `🔥 Day streak: ${ST.dayStreak} · Sessions completed: ${ST.sessions}. ` +
-        `Copy the log below into ICC Practice Sessions to keep the journal compounding.`;
+      $("gNote").textContent = `🔥 Day streak: ${ST.dayStreak} · Sessions completed: ${ST.sessions}.`;
+      $("sessionSaveStatus").textContent = "Saving your session…";
+      $("viewPerformance").hidden = true;
+      $("copyLog").hidden = inArena;
+      $("again").disabled = true;
       const guide = $("practiceGuideMessage");
       guide.textContent = GUIDE_NAME + ' · ' + (ST.sessions===1 ? 'You finished your first Free Practice session. ' : 'You finished another Free Practice session. ') +
         `You read ${ROUNDS_PER_SESSION} setups and got ${SES.correct} right. ` +
-        (SES.correct===ROUNDS_PER_SESSION ? 'Try explaining the evidence behind each answer on your next rep.' : 'Review one missed setup in the session log and name what you would look for next time.');
+        (SES.correct===ROUNDS_PER_SESSION ? 'Try explaining the evidence behind each answer on your next rep.' : 'Pick one setup you missed and name what you would look for next time.');
 
       // Kingdom note — earned affirmation paired with the evidence that fired it
       const kctx = {
@@ -2236,6 +2242,19 @@ Stats: ${SES.correct}/${ROUNDS_PER_SESSION} correct · Total R ${SES.rTotal>0?"+
 
       $("summary").classList.add("open");
       if(grade==="A") burst(90);
+      let saved = false;
+      try { saved = Boolean(await saveState(ST)); }
+      catch { /* Results remain available to copy if storage fails. */ }
+      if(SES!==completed) return;
+      $("again").disabled = false;
+      $("sessionSaveStatus").textContent = saved
+        ? connection.guest ? "Added to Performance for this guest session." : inArena ? "Session saved to Performance." : "Session saved to your history."
+        : "This session could not be saved. Copy the results to keep a record.";
+      $("copyLog").hidden = inArena && saved;
+      if(inArena && saved){
+        $("viewPerformance").hidden = false;
+        $("viewPerformance").onclick = () => connection.exit("performance/" + encodeURIComponent(completed.id));
+      }
     }
 
     $("again").onclick = newSession;
